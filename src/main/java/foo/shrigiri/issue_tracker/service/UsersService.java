@@ -98,4 +98,8 @@ public class UsersService {
             return "Error deleting user";
         }
     }
+
+    public Users updateUser(Users user) {
+        return usersRepository.save(user);
+    }
 }

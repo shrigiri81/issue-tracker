@@ -18,7 +18,7 @@ public class Issues {
     private Integer issueId;
     private String issueTitle;
     private String issueDesc;
-    private String status;
+    private String status; // issue status: open, close, merged...etc
     private String priority;
     private Date createdAt;
     private Date updatedAt;

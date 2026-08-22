@@ -61,4 +61,9 @@ public class UsersController {
         log.info("User with id {} deleted", id);
         return result;
     }
+
+    @PostMapping("/api/users/{id}")
+    public Users updateUser(@RequestBody Users user) {
+        return usersService.updateUser(user);
+    }
 }
