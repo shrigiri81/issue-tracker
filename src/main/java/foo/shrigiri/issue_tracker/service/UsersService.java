@@ -44,6 +44,11 @@ public class UsersService {
         return users;
     }
 
+    public Users findByUsername(String username) {
+        log.debug("Finding user by username: {}", username);
+        return usersRepository.findByUsername(username);
+    }
+
     public Optional<Users> getUserById(Integer id) {
         log.debug("Retrieving user with id: {}", id);
         Optional<Users> user = usersRepository.findById(id);

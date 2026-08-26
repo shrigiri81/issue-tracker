@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${issue.issueTitle} + ' · Issue Tracker'">Issue · Issue Tracker</title>
+    <meta name="description" th:content="'Issue: ' + ${issue.issueTitle}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <style>
+        .issue-body {
+            font-size: 0.88rem;
+            color: var(--text);
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .edit-form { display: none; }
+        .edit-form.visible { display: flex; flex-direction: column; gap: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">🐞</div>
+            <span>Issue Tracker</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Navigation</div>
+            <a th:href="@{/dashboard}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+            <a th:href="@{/projects/{id}(id=${projectId})}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M16 3v4M8 3v4"/></svg>
+                <span class="truncate" th:text="${projectName}">Project</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <form th:action="@{/logout}" method="post">
+                <button id="logout-btn" type="submit" class="btn btn-ghost w-full" style="justify-content:flex-start;gap:10px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Logout
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-wrap">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-title" th:text="'#' + ${issue.issueId} + ' · ' + ${issue.issueTitle}">Issue</div>
+            <div class="user-pill">
+                <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
+                <span th:text="${currentUser}">username</span>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Flash Messages -->
+            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>
+                ✓ <span th:text="${success}"></span>
+            </div>
+            <div th:if="${error}" class="alert alert-error mb-4" data-auto-dismiss>
+                ✗ <span th:text="${error}"></span>
+            </div>
+
+            <!-- Breadcrumb -->
+            <nav class="breadcrumb">
+                <a th:href="@{/dashboard}">Dashboard</a>
+                <span class="breadcrumb-sep">/</span>
+                <a th:href="@{/projects/{id}(id=${projectId})}" th:text="${projectName}">Project</a>
+                <span class="breadcrumb-sep">/</span>
+                <span th:text="'#' + ${issue.issueId}">Issue</span>
+            </nav>
+
+            <!-- Two-column layout -->
+            <div class="detail-layout">
+
+                <!-- Left: Issue Content -->
+                <div style="display:flex;flex-direction:column;gap:16px">
+
+                    <!-- Issue Header Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                                <span class="badge"
+                                      th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
+                                      th:text="${issue.status ?: 'OPEN'}">OPEN</span>
+                                <h1 style="font-size:1.05rem;font-weight:600;letter-spacing:-0.01em" th:text="${issue.issueTitle}">Issue Title</h1>
+                            </div>
+                            <button id="edit-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleEdit()">Edit</button>
+                        </div>
+                        <div class="card-body">
+
+                            <!-- View Mode -->
+                            <div id="view-mode">
+                                <p class="issue-body" th:text="${issue.issueDesc ?: 'No description provided.'}">Description</p>
+                            </div>
+
+                            <!-- Edit Form -->
+                            <form id="edit-form" class="edit-form"
+                                  th:action="@{/issues/{id}/update(id=${issue.issueId})}"
+                                  method="post">
+                                <div class="form-group">
+                                    <label class="form-label" for="edit-title">Title *</label>
+                                    <input id="edit-title" name="issueTitle" type="text" class="form-control"
+                                           th:value="${issue.issueTitle}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="edit-desc">Description</label>
+                                    <textarea id="edit-desc" name="issueDesc" class="form-control"
+                                              rows="6" th:text="${issue.issueDesc}"></textarea>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label" for="edit-status">Status</label>
+                                        <select id="edit-status" name="status" class="form-control">
+                                            <option value="OPEN"        th:selected="${issue.status == 'OPEN'}">Open</option>
+                                            <option value="IN_PROGRESS" th:selected="${issue.status == 'IN_PROGRESS'}">In Progress</option>
+                                            <option value="CLOSED"      th:selected="${issue.status == 'CLOSED'}">Closed</option>
+                                            <option value="MERGED"      th:selected="${issue.status == 'MERGED'}">Merged</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" for="edit-priority">Priority</label>
+                                        <select id="edit-priority" name="priority" class="form-control">
+                                            <option value="LOW"      th:selected="${issue.priority == 'LOW'}">Low</option>
+                                            <option value="MEDIUM"   th:selected="${issue.priority == 'MEDIUM'}">Medium</option>
+                                            <option value="HIGH"     th:selected="${issue.priority == 'HIGH'}">High</option>
+                                            <option value="CRITICAL" th:selected="${issue.priority == 'CRITICAL'}">Critical</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="edit-assignee">Assigned To</label>
+                                    <select id="edit-assignee" name="assignedTo" class="form-control">
+                                        <option value="">— Unassigned —</option>
+                                        <option th:each="u : ${allUsers}"
+                                                th:value="${u.userId}"
+                                                th:selected="${u.userId == issue.assignedTo}"
+                                                th:text="${u.username}">User</option>
+                                    </select>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-secondary" onclick="toggleEdit()">Cancel</button>
+                                    <button id="save-issue-btn" type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right: Meta Panel -->
+                <div class="meta-panel">
+                    <div class="meta-item">
+                        <span class="meta-label">Project</span>
+                        <a class="meta-value" th:href="@{/projects/{id}(id=${projectId})}"
+                           style="color:var(--accent)" th:text="${projectName}">Project Name</a>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Status</span>
+                        <span class="meta-value">
+                            <span class="badge"
+                                  th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
+                                  th:text="${issue.status ?: 'OPEN'}">OPEN</span>
+                        </span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Priority</span>
+                        <span class="meta-value">
+                            <span class="badge"
+                                  th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
+                                  th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
+                        </span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Reporter</span>
+                        <span class="meta-value" th:text="${createdByName}">Unknown</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Assignee</span>
+                        <span class="meta-value" th:text="${assignedToName}">Unassigned</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Created</span>
+                        <span class="meta-value"
+                              th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Last Updated</span>
+                        <span class="meta-value"
+                              th:text="${issue.updatedAt != null ? #dates.format(issue.updatedAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                    </div>
+                    <div class="meta-item">
+                        <a th:href="@{/projects/{id}(id=${projectId})}" class="btn btn-secondary btn-sm w-full"
+                           style="justify-content:center">← Back to Project</a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+    function toggleEdit() {
+        const editForm = document.getElementById('edit-form');
+        const viewMode = document.getElementById('view-mode');
+        const btn = document.getElementById('edit-toggle-btn');
+        const isEditing = editForm.classList.toggle('visible');
+        viewMode.style.display = isEditing ? 'none' : '';
+        btn.textContent = isEditing ? 'Cancel' : 'Edit';
+    }
+</script>
+</body>
+</html>

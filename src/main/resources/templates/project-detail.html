@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${project.projTitle} + ' · Issue Tracker'">Project · Issue Tracker</title>
+    <meta name="description" th:content="'Issues for ' + ${project.projTitle}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">🐞</div>
+            <span>Issue Tracker</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Navigation</div>
+            <a th:href="@{/dashboard}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+            <a th:href="@{/projects/{id}(id=${project.projId})}" class="nav-link active">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M16 3v4M8 3v4"/></svg>
+                <span class="truncate" th:text="${project.projTitle}">Project</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <form th:action="@{/logout}" method="post">
+                <button id="logout-btn" type="submit" class="btn btn-ghost w-full" style="justify-content:flex-start;gap:10px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Logout
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-wrap">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-title" th:text="${project.projTitle}">Project Name</div>
+            <div class="topbar-search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="issue-search" placeholder="Filter issues…" autocomplete="off">
+            </div>
+            <div class="user-pill">
+                <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
+                <span th:text="${currentUser}">username</span>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Flash Messages -->
+            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>
+                ✓ <span th:text="${success}"></span>
+            </div>
+            <div th:if="${error}" class="alert alert-error mb-4" data-auto-dismiss>
+                ✗ <span th:text="${error}"></span>
+            </div>
+
+            <!-- Breadcrumb -->
+            <nav class="breadcrumb">
+                <a th:href="@{/dashboard}">Dashboard</a>
+                <span class="breadcrumb-sep">/</span>
+                <span th:text="${project.projTitle}">Project</span>
+            </nav>
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <div>
+                    <h1 th:text="${project.projTitle}">Project Name</h1>
+                    <p class="page-subtitle">
+                        <span th:text="${project.projDesc ?: 'No description.'}"></span>
+                        &nbsp;·&nbsp;Owner: <strong th:text="${ownerName}">Unknown</strong>
+                        &nbsp;·&nbsp;<span th:text="${issues.size()} + ' issue(s)'">0 issues</span>
+                    </p>
+                </div>
+                <button id="new-issue-btn" class="btn btn-primary"
+                        onclick="togglePanel('new-issue-panel')"
+                        data-panel="new-issue-panel">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Issue
+                </button>
+            </div>
+
+            <!-- New Issue Panel -->
+            <div class="panel mb-4">
+                <div class="panel-header" onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">
+                    <span>+ Create New Issue</span>
+                    <span class="panel-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                </div>
+                <div id="new-issue-panel" class="panel-body">
+                    <form th:action="@{/projects/{id}/issues(id=${project.projId})}" method="post"
+                          style="display:flex;flex-direction:column;gap:14px">
+                        <div class="form-group">
+                            <label class="form-label" for="issue-title">Issue Title *</label>
+                            <input id="issue-title" name="issueTitle" type="text" class="form-control"
+                                   placeholder="Brief summary of the issue" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="issue-desc">Description</label>
+                            <textarea id="issue-desc" name="issueDesc" class="form-control"
+                                      placeholder="Describe the issue in detail…"></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="issue-status">Status</label>
+                                <select id="issue-status" name="status" class="form-control">
+                                    <option value="OPEN">Open</option>
+                                    <option value="IN_PROGRESS">In Progress</option>
+                                    <option value="CLOSED">Closed</option>
+                                    <option value="MERGED">Merged</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="issue-priority">Priority</label>
+                                <select id="issue-priority" name="priority" class="form-control">
+                                    <option value="LOW">Low</option>
+                                    <option value="MEDIUM" selected>Medium</option>
+                                    <option value="HIGH">High</option>
+                                    <option value="CRITICAL">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="issue-assignee">Assign To</label>
+                            <select id="issue-assignee" name="assignedTo" class="form-control">
+                                <option value="">— Unassigned —</option>
+                                <option th:each="u : ${allUsers}"
+                                        th:value="${u.userId}"
+                                        th:text="${u.username}">User</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">Cancel</button>
+                            <button id="create-issue-submit" type="submit" class="btn btn-primary">Create Issue</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Issues Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Issues</h2>
+                    <span class="badge-count" th:text="${issues.size()} + ' total'">0 total</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="table" id="issues-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Assignee</th>
+                                <th>Created</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Empty state -->
+                            <tr th:if="${issues.isEmpty()}">
+                                <td colspan="7">
+                                    <div class="table-empty">
+                                        <div class="empty-icon">🔍</div>
+                                        <p>No issues yet. Click "New Issue" to create the first one.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            <!-- Issue rows -->
+                            <tr th:each="issue : ${issues}" th:attr="data-title=${issue.issueTitle}">
+                                <td class="text-muted" style="font-size:0.75rem;font-weight:600" th:text="'#' + ${issue.issueId}">#1</td>
+                                <td>
+                                    <a th:href="@{/issues/{id}(id=${issue.issueId})}"
+                                       style="color:var(--text);font-weight:500"
+                                       th:text="${issue.issueTitle}">Issue title</a>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
+                                          th:text="${issue.status ?: 'OPEN'}">OPEN</span>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
+                                          th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
+                                </td>
+                                <td class="text-muted" th:text="${userMap[issue.assignedTo] ?: 'Unassigned'}">Unassigned</td>
+                                <td class="text-muted" style="font-size:0.78rem"
+                                    th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy') : '—'}">—</td>
+                                <td>
+                                    <a th:href="@{/issues/{id}(id=${issue.issueId})}" class="btn btn-ghost btn-sm">View →</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+    // Client-side issue filter
+    document.getElementById('issue-search').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('#issues-table tbody tr[data-title]').forEach(function (row) {
+            const title = (row.getAttribute('data-title') || '').toLowerCase();
+            row.style.display = title.includes(q) ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,21 +30,55 @@ import java.security.interfaces.RSAPublicKey;
 @Slf4j
 public class SecurityConfig {
 
+    // ─── Web (Thymeleaf) Filter Chain — Order 1 (higher priority) ───────────────
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        log.info("Configuring security filter chain");
+    @Order(1)
+    SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
+        log.info("Configuring web (session-based) security filter chain");
         SecurityFilterChain chain = http
+                .securityMatcher("/", "/login", "/register", "/dashboard", "/projects/**", "/issues/**",
+                        "/logout", "/css/**", "/js/**", "/images/**", "/error")
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/register")) // allow POST before session exists
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/login", "/register", "/css/**", "/js/**", "/images/**", "/error")
+                        .permitAll()
+                        .anyRequest().authenticated())
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .loginProcessingUrl("/login")
+                        .defaultSuccessUrl("/dashboard", true)
+                        .failureUrl("/login?error")
+                        .permitAll())
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?logout")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
+                        .permitAll())
+                .build();
+        log.info("Web security filter chain configured successfully");
+        return chain;
+    }
+
+    // ─── API (JWT / stateless) Filter Chain — Order 2 ────────────────────────────
+    @Bean
+    @Order(2)
+    SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+        log.info("Configuring API (JWT) security filter chain");
+        SecurityFilterChain chain = http
+                .securityMatcher("/api/**", "/actuator/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s ->
                         s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/register", "/login", "/actuator/health")
+                        .requestMatchers("/actuator/health", "/api/login", "/api/register")
                         .permitAll()
                         .anyRequest().authenticated())
                 .httpBasic(basic -> {})
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
                 .build();
-        log.info("Security filter chain configured successfully");
+        log.info("API security filter chain configured successfully");
         return chain;
     }
 

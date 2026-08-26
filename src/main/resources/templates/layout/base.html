@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' · Issue Tracker'">Issue Tracker</title>
+    <meta name="description" th:content="'Issue Tracker — ' + ${title}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<!-- ─── Shared App Layout Fragment ─────────────────────────────────────────── -->
+<div th:fragment="layout(title, content)" class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">🐞</div>
+            <span>Issue Tracker</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Navigation</div>
+            <a th:href="@{/dashboard}" class="nav-link"
+               th:classappend="${#strings.contains(#httpServletRequest.requestURI, '/dashboard')} ? 'active' : ''">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Dashboard
+            </a>
+            <a th:href="@{/dashboard}" class="nav-link"
+               th:classappend="${#strings.startsWith(#httpServletRequest.requestURI, '/projects')} ? 'active' : ''">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/>
+                    <path d="M16 3v4M8 3v4"/>
+                </svg>
+                Projects
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="btn btn-ghost w-full" style="justify-content:flex-start;gap:10px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Logout
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrap">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-title" th:text="${title}">Page Title</div>
+            <div class="topbar-search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                     style="color:var(--text-dim);flex-shrink:0">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="topbar-search-input" placeholder="Search…" autocomplete="off">
+            </div>
+            <div class="user-pill">
+                <div class="user-avatar" th:text="${#strings.abbreviate(currentUser, 1).toUpperCase()}">U</div>
+                <span th:text="${currentUser}">username</span>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        <div style="padding: 0 32px; margin-top: 16px;">
+            <div th:if="${successMsg}" class="alert alert-success" data-auto-dismiss>
+                ✓ <span th:text="${successMsg}"></span>
+            </div>
+            <div th:if="${errorMsg}" class="alert alert-error" data-auto-dismiss>
+                ✗ <span th:text="${errorMsg}"></span>
+            </div>
+            <div th:if="${#strings.contains(#httpServletRequest.queryString, 'success')}"
+                 class="alert alert-success" data-auto-dismiss>
+                ✓ <span th:text="${success}"></span>
+            </div>
+        </div>
+
+        <!-- Page Content -->
+        <main class="page-content" th:replace="${content}">
+            <!-- page body injected here -->
+        </main>
+
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

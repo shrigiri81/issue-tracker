@@ -55,4 +55,11 @@ public class IssuesService {
         log.info("Issue updated successfully with id: {}", updated.getIssueId());
         return updated;
     }
+
+    public List<Issues> getIssuesByProjectId(Integer projectId) {
+        log.debug("Retrieving issues for project id: {}", projectId);
+        List<Issues> issues = issuesRepository.findByProjectId(projectId);
+        log.info("Retrieved {} issues for project id: {}", issues.size(), projectId);
+        return issues;
+    }
 }

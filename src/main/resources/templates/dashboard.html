@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard · Issue Tracker</title>
+    <meta name="description" content="View and manage all your projects">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">🐞</div>
+            <span>Issue Tracker</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Navigation</div>
+            <a th:href="@{/dashboard}" class="nav-link active">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <form th:action="@{/logout}" method="post">
+                <button id="logout-btn" type="submit" class="btn btn-ghost w-full" style="justify-content:flex-start;gap:10px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Logout
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-wrap">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-title">Dashboard</div>
+            <div class="topbar-search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="search-input" placeholder="Search projects…" autocomplete="off">
+            </div>
+            <div class="user-pill">
+                <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
+                <span th:text="${currentUser}">username</span>
+            </div>
+        </header>
+
+        <main class="page-content">
+
+            <!-- Flash Messages -->
+            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>
+                ✓ <span th:text="${success}"></span>
+            </div>
+            <div th:if="${error}" class="alert alert-error mb-4" data-auto-dismiss>
+                ✗ <span th:text="${error}"></span>
+            </div>
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <div>
+                    <h1>Projects</h1>
+                    <p class="page-subtitle" th:text="${projects.size()} + ' project(s) in your workspace'">All projects</p>
+                </div>
+                <button id="new-project-btn" class="btn btn-primary"
+                        onclick="togglePanel('new-project-panel')"
+                        data-panel="new-project-panel">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Project
+                </button>
+            </div>
+
+            <!-- New Project Panel -->
+            <div class="panel mb-4">
+                <div class="panel-header" onclick="togglePanel('new-project-panel')" data-panel="new-project-panel">
+                    <span>+ Create New Project</span>
+                    <span class="panel-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                </div>
+                <div id="new-project-panel" class="panel-body">
+                    <form th:action="@{/projects}" method="post" style="display:flex;flex-direction:column;gap:14px">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="proj-title">Project Title *</label>
+                                <input id="proj-title" name="projTitle" type="text" class="form-control" placeholder="e.g. Backend API v2" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="proj-desc">Description</label>
+                                <input id="proj-desc" name="projDesc" type="text" class="form-control" placeholder="Short description…">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="togglePanel('new-project-panel')" data-panel="new-project-panel">Cancel</button>
+                            <button id="create-project-submit" type="submit" class="btn btn-primary">Create Project</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Projects Grid -->
+            <div class="projects-grid" id="projects-grid">
+
+                <!-- Empty state -->
+                <div th:if="${projects.isEmpty()}" style="grid-column:1/-1;text-align:center;padding:64px 20px;color:var(--text-muted)">
+                    <div style="font-size:3rem;margin-bottom:16px;opacity:0.4">📁</div>
+                    <p style="font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)">No projects yet</p>
+                    <p style="font-size:0.83rem">Click "New Project" to create your first one.</p>
+                </div>
+
+                <!-- Project Cards -->
+                <div class="project-card" th:each="p : ${projects}" th:attr="data-title=${p.projTitle}">
+                    <div class="project-card-header">
+                        <div class="project-icon">📋</div>
+                        <span class="badge-count" th:text="${issueCountMap[p.projId]} + ' issues'">0 issues</span>
+                    </div>
+                    <div>
+                        <div class="project-title" th:text="${p.projTitle}">Project Name</div>
+                        <div class="project-desc" th:text="${p.projDesc ?: 'No description provided.'}">Description</div>
+                    </div>
+                    <div class="project-meta">
+                        <span th:if="${p.createdAt != null}"
+                              th:text="'Created ' + ${#dates.format(p.createdAt, 'dd MMM yyyy')}">Created date</span>
+                    </div>
+                    <div class="project-card-footer">
+                        <a th:href="@{/projects/{id}(id=${p.projId})}" class="btn btn-secondary btn-sm">
+                            View Project →
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+    // Client-side project search filter
+    document.getElementById('search-input').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.project-card').forEach(function (card) {
+            const title = (card.getAttribute('data-title') || '').toLowerCase();
+            card.style.display = title.includes(q) ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

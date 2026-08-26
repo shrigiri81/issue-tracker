@@ -40,7 +40,7 @@ public class UsersController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/login")
+    @PostMapping("/api/login")
     public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
         log.info("Login attempt for username: {}", loginRequest.getUsername());
         Authentication authentication = usersService.verify(loginRequest);
@@ -49,7 +49,7 @@ public class UsersController {
         return ResponseEntity.ok(token);
     }
 
-    @PostMapping("/register")
+    @PostMapping("/api/register")
     public ResponseEntity<Users> register(@RequestBody Users user) {
         log.info("Registering new user: {}", user.getUsername());
         Users registeredUser = usersService.register(user);
