@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CurrentTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.util.Date;
 
@@ -17,8 +19,12 @@ public class Projects {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer projId;
     private String projTitle;
-    private String proj_desc;
+    private String projDesc;
+
+    @CurrentTimestamp
     private Date createdAt;
+    @UpdateTimestamp
     private Date updatedAt;
+
     private Integer ownerId;
 }

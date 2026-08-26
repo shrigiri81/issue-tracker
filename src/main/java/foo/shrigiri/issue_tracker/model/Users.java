@@ -1,5 +1,6 @@
 package foo.shrigiri.issue_tracker.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,9 +17,13 @@ public class Users {
     private Integer userId;
     private String username;
     private String email;
+
     @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
-    private String hashed_password;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String hashedPassword;
     private String role;
 
     private boolean enabled = true;

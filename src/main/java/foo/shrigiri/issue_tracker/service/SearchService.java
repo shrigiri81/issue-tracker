@@ -4,12 +4,14 @@ import foo.shrigiri.issue_tracker.controller.SearchController;
 import foo.shrigiri.issue_tracker.repository.IssuesRepository;
 import foo.shrigiri.issue_tracker.repository.ProjectRepository;
 import foo.shrigiri.issue_tracker.repository.UsersRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Slf4j
 public class SearchService {
 
     private final UsersRepository usersRepository;
@@ -20,39 +22,33 @@ public class SearchService {
         this.usersRepository = usersRepository;
         this.projectRepository = projectRepository;
         this.issuesRepository = issuesRepository;
+        log.info("SearchService initialized");
     }
 
     public List<SearchController.SearchResponse> search(String q) {
+        log.debug("Searching across users, projects, and issues with query: '{}'", q);
 
         List<SearchController.SearchResponse> results = new ArrayList<>();
 
-        usersRepository.findByUsernameContainsIgnoreCase(q)
-                .forEach(user ->
-                        results.add(new SearchController.SearchResponse(
-                                user.getUserId(),
-                                "USER",
-                                user.getUsername()
-                        ))
-                );
+        var userMatches = usersRepository.findByUsernameContainsIgnoreCase(q);
+        userMatches.forEach(user ->
+                results.add(new SearchController.SearchResponse(user.getUserId(), "USER", user.getUsername()))
+        );
+        log.debug("Found {} user match(es) for query '{}'", userMatches.size(), q);
 
-        projectRepository.findByProjTitleContainsIgnoreCase(q)
-                .forEach(user ->
-                        results.add(new SearchController.SearchResponse(
-                                user.getProjId(),
-                                "PROJECT",
-                                user.getProjTitle()
-                        ))
-                );
+        var projectMatches = projectRepository.findByProjTitleContainsIgnoreCase(q);
+        projectMatches.forEach(proj ->
+                results.add(new SearchController.SearchResponse(proj.getProjId(), "PROJECT", proj.getProjTitle()))
+        );
+        log.debug("Found {} project match(es) for query '{}'", projectMatches.size(), q);
 
-        issuesRepository.findByIssueTitleContainsIgnoreCase(q)
-                .forEach(user ->
-                        results.add(new SearchController.SearchResponse(
-                                user.getIssueId(),
-                                "ISSUE",
-                                user.getIssueTitle()
-                        ))
-                );
+        var issueMatches = issuesRepository.findByIssueTitleContainsIgnoreCase(q);
+        issueMatches.forEach(issue ->
+                results.add(new SearchController.SearchResponse(issue.getIssueId(), "ISSUE", issue.getIssueTitle()))
+        );
+        log.debug("Found {} issue match(es) for query '{}'", issueMatches.size(), q);
 
+        log.info("Search for '{}' completed with {} total result(s)", q, results.size());
         return results;
     }
 }

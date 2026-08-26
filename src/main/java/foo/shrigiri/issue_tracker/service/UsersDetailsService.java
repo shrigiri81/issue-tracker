@@ -33,7 +33,7 @@ public class UsersDetailsService implements UserDetailsService {
         log.info("User details loaded successfully for username: {}", username);
         return User
                 .withUsername(user.getUsername())
-                .password(user.getHashed_password())
+                .password(user.getHashedPassword())
                 .authorities(user.getRole())
                 .disabled(!user.isEnabled())
                 .build();

@@ -58,8 +58,11 @@ public class UsersService {
     public Users register(Users user) {
         log.info("Registering new user: {}", user.getUsername());
         String encodedPassword = passwordEncoder.encode(user.getPassword());
-        user.setHashed_password(encodedPassword);
+        user.setHashedPassword(encodedPassword);
+        user.setPassword(null);
+
         Users savedUser = usersRepository.save(user);
+        savedUser.setPassword(null);
         log.info("User registered successfully: {}", user.getUsername());
         return savedUser;
     }
@@ -89,17 +92,32 @@ public class UsersService {
 
     public String deleteUser(Integer id) {
         log.info("Deleting user with id: {}", id);
-        try {
+        if (usersRepository.existsById(id)) {
             usersRepository.deleteById(id);
             log.info("User deleted successfully with id: {}", id);
             return "Deleted Successfully";
-        } catch (Exception e) {
-            log.error("Error deleting user with id: {}", id, e);
-            return "Error deleting user";
         }
+
+        log.warn("Delete failed — user not found with id: {}", id);
+        return "User not found";
     }
 
-    public Users updateUser(Users user) {
-        return usersRepository.save(user);
+    public Users updateUser(Integer id, Users user) {
+        log.info("Updating user with id: {}", user.getUserId());
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            log.debug("Re-hashing password for user with id: {}", user.getUserId());
+            user.setHashedPassword(passwordEncoder.encode(user.getPassword()));
+            user.setPassword(null);
+        }
+
+        Users user1 = usersRepository.findById(id).orElseThrow();
+        user1.setUsername(user.getUsername());
+        user1.setRole(user.getRole());
+        user1.setEnabled(user.isEnabled());
+
+        Users savedUser = usersRepository.save(user1);
+        savedUser.setPassword(null);
+        log.info("User updated successfully with id: {}", savedUser.getUserId());
+        return savedUser;
     }
 }
