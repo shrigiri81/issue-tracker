@@ -50,9 +50,14 @@ public class UsersController {
     }
 
     @PostMapping("/api/register")
-    public ResponseEntity<Users> register(@RequestBody Users user) {
-        log.info("Registering new user: {}", user.getUsername());
-        Users registeredUser = usersService.register(user);
+    public ResponseEntity<?> register(@RequestBody Users user) {
+        Users registeredUser;
+        try {
+            log.info("Registering new user: {}", user.getUsername());
+            registeredUser = usersService.register(user);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
         log.info("Successfully registered user: {}", user.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(registeredUser);
     }

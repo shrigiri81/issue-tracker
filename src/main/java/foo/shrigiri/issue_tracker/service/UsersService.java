@@ -62,6 +62,16 @@ public class UsersService {
     }
 
     public Users register(Users user) {
+        log.info("Checking whether new user's username unique");
+        if (usersRepository.existsByUsername(user.getUsername())) {
+            log.error("New user's username already taken, throwing an exception");
+            throw new IllegalArgumentException("Username already taken.");
+        }
+        log.info("Checking whether new user's email is unique");
+        if (usersRepository.existsByEmail(user.getEmail())) {
+            log.error("New user's email already exists, throwing an exception");
+            throw new IllegalArgumentException("Email already exists.");
+        }
         log.info("Registering new user: {}", user.getUsername());
         if (user.getRole() == null || user.getRole().isBlank()) {
             user.setRole("USER");
