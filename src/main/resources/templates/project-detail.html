@@ -6,6 +6,31 @@
     <title th:text="${project.projTitle} + ' · Issue Tracker'">Project · Issue Tracker</title>
     <meta name="description" th:content="'Issues for ' + ${project.projTitle}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <style>
+        .edit-project-form { display: none; }
+        .edit-project-form.visible { display: flex; flex-direction: column; gap: 14px; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+            z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 32px 28px; max-width: 420px; width: 90%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.4); animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn {
+            from { opacity:0; transform: scale(0.94) translateY(8px); }
+            to   { opacity:1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon { width:48px; height:48px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:1.4rem; }
+        .modal-title  { font-size:1.05rem; font-weight:700; margin-bottom:8px; }
+        .modal-desc   { font-size:0.85rem; color:var(--text-muted); margin-bottom:24px; line-height:1.6; }
+        .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+    </style>
 </head>
 <body>
 
@@ -48,21 +73,17 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input type="text" id="issue-search" placeholder="Filter issues…" autocomplete="off">
             </div>
-            <div class="user-pill">
+            <a th:href="@{/profile}" class="user-pill" style="text-decoration:none;cursor:pointer">
                 <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
                 <span th:text="${currentUser}">username</span>
-            </div>
+            </a>
         </header>
 
         <main class="page-content">
 
             <!-- Flash Messages -->
-            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>
-                ✓ <span th:text="${success}"></span>
-            </div>
-            <div th:if="${error}" class="alert alert-error mb-4" data-auto-dismiss>
-                ✗ <span th:text="${error}"></span>
-            </div>
+            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>✓ <span th:text="${success}"></span></div>
+            <div th:if="${error}"   class="alert alert-error   mb-4" data-auto-dismiss>✗ <span th:text="${error}"></span></div>
 
             <!-- Breadcrumb -->
             <nav class="breadcrumb">
@@ -82,8 +103,7 @@
                     </p>
                 </div>
                 <button id="new-issue-btn" class="btn btn-primary"
-                        onclick="togglePanel('new-issue-panel')"
-                        data-panel="new-issue-panel">
+                        onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     New Issue
                 </button>
@@ -134,9 +154,7 @@
                             <label class="form-label" for="issue-assignee">Assign To</label>
                             <select id="issue-assignee" name="assignedTo" class="form-control">
                                 <option value="">— Unassigned —</option>
-                                <option th:each="u : ${allUsers}"
-                                        th:value="${u.userId}"
-                                        th:text="${u.username}">User</option>
+                                <option th:each="u : ${allUsers}" th:value="${u.userId}" th:text="${u.username}">User</option>
                             </select>
                         </div>
                         <div class="form-actions">
@@ -147,78 +165,220 @@
                 </div>
             </div>
 
-            <!-- Issues Table -->
-            <div class="card">
-                <div class="card-header">
-                    <h2>Issues</h2>
-                    <span class="badge-count" th:text="${issues.size()} + ' total'">0 total</span>
+            <!-- Two-column layout -->
+            <div class="detail-layout">
+
+                <!-- Left: Issues Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Issues</h2>
+                        <span class="badge-count" th:text="${issues.size()} + ' total'">0 total</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="table" id="issues-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Assignee</th>
+                                    <th>Created</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Empty state -->
+                                <tr th:if="${issues.isEmpty()}">
+                                    <td colspan="7">
+                                        <div class="table-empty">
+                                            <div class="empty-icon">🔍</div>
+                                            <p>No issues yet. Click "New Issue" to create the first one.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Issue rows -->
+                                <tr th:each="issue : ${issues}" th:attr="data-title=${issue.issueTitle}">
+                                    <td class="text-muted" style="font-size:0.75rem;font-weight:600" th:text="'#' + ${issue.issueId}">#1</td>
+                                    <td>
+                                        <a th:href="@{/issues/{id}(id=${issue.issueId})}"
+                                           style="color:var(--text);font-weight:500"
+                                           th:text="${issue.issueTitle}">Issue title</a>
+                                    </td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
+                                              th:text="${issue.status ?: 'OPEN'}">OPEN</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
+                                              th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
+                                    </td>
+                                    <td class="text-muted" th:text="${userMap[issue.assignedTo] ?: 'Unassigned'}">Unassigned</td>
+                                    <td class="text-muted" style="font-size:0.78rem"
+                                        th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy') : '—'}">—</td>
+                                    <td style="display:flex;gap:6px;align-items:center">
+                                        <a th:href="@{/issues/{id}(id=${issue.issueId})}" class="btn btn-ghost btn-sm">View →</a>
+                                        <form th:action="@{/issues/{id}/delete(id=${issue.issueId})}" method="post" style="margin:0"
+                                              th:id="'del-form-' + ${issue.issueId}">
+                                            <button type="button" class="btn btn-sm"
+                                                    style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);padding:4px 10px"
+                                                    th:attr="onclick='confirmDeleteIssue(' + ${issue.issueId} + ', \'' + ${issue.issueTitle} + '\')'">✕</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="table-wrap">
-                    <table class="table" id="issues-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Title</th>
-                                <th>Status</th>
-                                <th>Priority</th>
-                                <th>Assignee</th>
-                                <th>Created</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Empty state -->
-                            <tr th:if="${issues.isEmpty()}">
-                                <td colspan="7">
-                                    <div class="table-empty">
-                                        <div class="empty-icon">🔍</div>
-                                        <p>No issues yet. Click "New Issue" to create the first one.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                            <!-- Issue rows -->
-                            <tr th:each="issue : ${issues}" th:attr="data-title=${issue.issueTitle}">
-                                <td class="text-muted" style="font-size:0.75rem;font-weight:600" th:text="'#' + ${issue.issueId}">#1</td>
-                                <td>
-                                    <a th:href="@{/issues/{id}(id=${issue.issueId})}"
-                                       style="color:var(--text);font-weight:500"
-                                       th:text="${issue.issueTitle}">Issue title</a>
-                                </td>
-                                <td>
-                                    <span class="badge"
-                                          th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
-                                          th:text="${issue.status ?: 'OPEN'}">OPEN</span>
-                                </td>
-                                <td>
-                                    <span class="badge"
-                                          th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
-                                          th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
-                                </td>
-                                <td class="text-muted" th:text="${userMap[issue.assignedTo] ?: 'Unassigned'}">Unassigned</td>
-                                <td class="text-muted" style="font-size:0.78rem"
-                                    th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy') : '—'}">—</td>
-                                <td>
-                                    <a th:href="@{/issues/{id}(id=${issue.issueId})}" class="btn btn-ghost btn-sm">View →</a>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+
+                <!-- Right: Project Info Panel -->
+                <div class="meta-panel">
+
+                    <!-- View mode -->
+                    <div id="project-view-mode">
+                        <div class="meta-item">
+                            <span class="meta-label">Project</span>
+                            <span class="meta-value" th:text="${project.projTitle}">Title</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Description</span>
+                            <span class="meta-value" style="white-space:pre-wrap;word-break:break-word;font-size:0.8rem;line-height:1.55"
+                                  th:text="${project.projDesc ?: '—'}">—</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Owner</span>
+                            <span class="meta-value" th:text="${ownerName}">Unknown</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Created</span>
+                            <span class="meta-value"
+                                  th:text="${project.createdAt != null ? #dates.format(project.createdAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Last Updated</span>
+                            <span class="meta-value"
+                                  th:text="${project.updatedAt != null ? #dates.format(project.updatedAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Total Issues</span>
+                            <span class="meta-value" th:text="${issues.size()}">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="meta-item" style="gap:8px">
+                        <button id="edit-project-btn" class="btn btn-secondary btn-sm w-full"
+                                style="justify-content:center" onclick="toggleProjectEdit()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                            Edit Project
+                        </button>
+                        <button id="delete-project-btn" class="btn btn-danger btn-sm w-full"
+                                style="justify-content:center" onclick="openDeleteProjectModal()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                            Delete Project
+                        </button>
+                    </div>
+
+                    <!-- Edit form (hidden by default) -->
+                    <div class="meta-item" id="project-edit-section" style="display:none">
+                        <form id="edit-project-form" class="edit-project-form visible"
+                              th:action="@{/projects/{id}/update(id=${project.projId})}" method="post">
+                            <div class="form-group">
+                                <label class="form-label" for="edit-proj-title">Title *</label>
+                                <input id="edit-proj-title" name="projTitle" type="text" class="form-control"
+                                       th:value="${project.projTitle}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="edit-proj-desc">Description</label>
+                                <textarea id="edit-proj-desc" name="projDesc" class="form-control"
+                                          rows="4" th:text="${project.projDesc}"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleProjectEdit()">Cancel</button>
+                                <button id="save-project-btn" type="submit" class="btn btn-primary btn-sm">Save</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div><!-- /meta-panel -->
+
+            </div><!-- /detail-layout -->
 
         </main>
     </div>
 </div>
 
+<!-- Delete Project Modal -->
+<div id="delete-project-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="del-proj-title">
+    <div class="modal-box">
+        <div class="modal-icon">🗑️</div>
+        <div class="modal-title" id="del-proj-title">Delete Project?</div>
+        <div class="modal-desc">
+            This will permanently delete the project
+            <strong th:text="${project.projTitle}">Project</strong>
+            and all its issues. This action cannot be undone.
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" onclick="closeDeleteProjectModal()">Cancel</button>
+            <form th:action="@{/projects/{id}/delete(id=${project.projId})}" method="post" style="margin:0">
+                <button id="confirm-delete-project-btn" type="submit" class="btn btn-danger btn-sm">Yes, Delete Project</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script th:src="@{/js/app.js}"></script>
 <script>
-    // Client-side issue filter
+    // ── Issue filter ──────────────────────────────────────────────────────────
     document.getElementById('issue-search').addEventListener('input', function () {
         const q = this.value.toLowerCase();
         document.querySelectorAll('#issues-table tbody tr[data-title]').forEach(function (row) {
             const title = (row.getAttribute('data-title') || '').toLowerCase();
             row.style.display = title.includes(q) ? '' : 'none';
         });
+    });
+
+    // ── Inline issue delete ───────────────────────────────────────────────────
+    function confirmDeleteIssue(id, title) {
+        if (confirm('Delete issue #' + id + ' — "' + title + '"?\nThis action cannot be undone.')) {
+            document.getElementById('del-form-' + id).submit();
+        }
+    }
+
+    // ── Project edit toggle ───────────────────────────────────────────────────
+    function toggleProjectEdit() {
+        const section = document.getElementById('project-edit-section');
+        const viewMode = document.getElementById('project-view-mode');
+        const btn = document.getElementById('edit-project-btn');
+        const isOpen = section.style.display === 'none';
+        section.style.display = isOpen ? '' : 'none';
+        viewMode.style.display = isOpen ? 'none' : '';
+        btn.textContent = isOpen ? 'Cancel Edit' : 'Edit Project';
+        if (!isOpen) {
+            // Reset button icon when cancelling
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Edit Project';
+        }
+    }
+
+    // ── Project delete modal ──────────────────────────────────────────────────
+    function openDeleteProjectModal() {
+        document.getElementById('delete-project-modal').classList.add('active');
+    }
+
+    function closeDeleteProjectModal() {
+        document.getElementById('delete-project-modal').classList.remove('active');
+    }
+
+    document.getElementById('delete-project-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeDeleteProjectModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeDeleteProjectModal();
+        }
     });
 </script>
 </body>

@@ -16,6 +16,56 @@
         }
         .edit-form { display: none; }
         .edit-form.visible { display: flex; flex-direction: column; gap: 14px; }
+
+        /* Delete confirmation modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 32px 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+            animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.94) translateY(8px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-icon {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            background: rgba(239,68,68,0.15);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 16px;
+            font-size: 1.4rem;
+        }
+        .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+        .modal-desc  { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.18s;
+        }
+        .btn-danger:hover { background: #dc2626; }
     </style>
 </head>
 <body>
@@ -38,6 +88,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M16 3v4M8 3v4"/></svg>
                 <span class="truncate" th:text="${projectName}">Project</span>
             </a>
+            <a th:href="@{/profile}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                Profile
+            </a>
         </nav>
         <div class="sidebar-footer">
             <form th:action="@{/logout}" method="post">
@@ -55,10 +109,10 @@
         <!-- Topbar -->
         <header class="topbar">
             <div class="topbar-title" th:text="'#' + ${issue.issueId} + ' · ' + ${issue.issueTitle}">Issue</div>
-            <div class="user-pill">
+            <a th:href="@{/profile}" class="user-pill" style="text-decoration:none;cursor:pointer">
                 <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
                 <span th:text="${currentUser}">username</span>
-            </div>
+            </a>
         </header>
 
         <main class="page-content">
@@ -95,7 +149,13 @@
                                       th:text="${issue.status ?: 'OPEN'}">OPEN</span>
                                 <h1 style="font-size:1.05rem;font-weight:600;letter-spacing:-0.01em" th:text="${issue.issueTitle}">Issue Title</h1>
                             </div>
-                            <button id="edit-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleEdit()">Edit</button>
+                            <div style="display:flex;gap:8px">
+                                <button id="edit-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleEdit()">Edit</button>
+                                <button id="delete-issue-btn" class="btn btn-sm btn-danger" onclick="openDeleteModal()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
 
@@ -212,6 +272,24 @@
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box">
+        <div class="modal-icon">🗑️</div>
+        <div class="modal-title" id="modal-title">Delete Issue?</div>
+        <div class="modal-desc">
+            This will permanently delete issue <strong th:text="'#' + ${issue.issueId} + ' — ' + ${issue.issueTitle}">this issue</strong>.
+            This action cannot be undone.
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" onclick="closeDeleteModal()">Cancel</button>
+            <form id="delete-form" th:action="@{/issues/{id}/delete(id=${issue.issueId})}" method="post" style="margin:0">
+                <button id="confirm-delete-btn" type="submit" class="btn-danger">Yes, Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script th:src="@{/js/app.js}"></script>
 <script>
     function toggleEdit() {
@@ -222,6 +300,22 @@
         viewMode.style.display = isEditing ? 'none' : '';
         btn.textContent = isEditing ? 'Cancel' : 'Edit';
     }
+
+    function openDeleteModal() {
+        document.getElementById('delete-modal').classList.add('active');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('delete-modal').classList.remove('active');
+    }
+
+    // Close modal on overlay click or Escape key
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeDeleteModal();
+    });
 </script>
 </body>
 </html>

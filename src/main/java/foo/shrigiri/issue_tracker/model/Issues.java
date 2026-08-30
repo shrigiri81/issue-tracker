@@ -28,7 +28,15 @@ public class Issues {
     @UpdateTimestamp
     private Date updatedAt;
 
-    private Integer projectId;
-    private Integer createdBy;
-    private Integer assignedTo;
+    @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Projects project;
+
+    @ManyToOne
+    @JoinColumn(name = "created_by")
+    private Users createdBy;
+
+    @ManyToOne
+    @JoinColumn(name = "assigned_to")
+    private Users assignedTo;
 }

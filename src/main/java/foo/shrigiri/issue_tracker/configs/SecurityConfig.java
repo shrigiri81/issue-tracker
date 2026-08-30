@@ -37,6 +37,7 @@ public class SecurityConfig {
         log.info("Configuring web (session-based) security filter chain");
         SecurityFilterChain chain = http
                 .securityMatcher("/", "/login", "/register", "/dashboard", "/projects/**", "/issues/**",
+                        "/profile", "/profile/**",
                         "/logout", "/css/**", "/js/**", "/images/**", "/error")
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/register")) // allow POST before session exists
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))

@@ -26,5 +26,7 @@ public class Projects {
     @UpdateTimestamp
     private Date updatedAt;
 
-    private Integer ownerId;
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private Users ownerId;
 }

@@ -57,4 +57,12 @@ public class IssuesController {
         log.info("Issue updated successfully for id: {}", updated.getIssueId());
         return ResponseEntity.ok(updated);
     }
+
+    @DeleteMapping("/api/issues/{id}/")
+    public ResponseEntity<String> deleteIssue(@PathVariable Integer id) {
+        log.info("Deleting issue with id: {}", id);
+        String response = issuesService.deleteIssue(id);
+        log.info("Issue deleted successfully for id {}", id);
+        return ResponseEntity.ok(response);
+    }
 }

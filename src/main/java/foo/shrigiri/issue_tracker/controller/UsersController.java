@@ -72,4 +72,12 @@ public class UsersController {
         log.info("User updated successfully for id: {}", updated.getUserId());
         return ResponseEntity.ok(updated);
     }
+
+    @PatchMapping("/api/users/{id}/password")
+    public ResponseEntity<String> updatePassword(@PathVariable Integer id, @RequestBody String currentPassword, @RequestBody String newPassword) {
+        log.info("Updating password for user id {}", id);
+        String result = usersService.updatePassword(id, currentPassword, newPassword);
+        log.info("Updating password: Password updated successfully");
+        return ResponseEntity.ok(result);
+    }
 }

@@ -9,5 +9,5 @@ public interface IssuesRepository extends JpaRepository<Issues, Integer> {
 
     List<Issues> findByIssueTitleContainsIgnoreCase(String q);
 
-    List<Issues> findByProjectId(Integer projectId);
+    List<Issues> findByProject_ProjId(Integer projectId);
 }

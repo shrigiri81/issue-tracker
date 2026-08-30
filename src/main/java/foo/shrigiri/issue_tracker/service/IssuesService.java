@@ -58,8 +58,20 @@ public class IssuesService {
 
     public List<Issues> getIssuesByProjectId(Integer projectId) {
         log.debug("Retrieving issues for project id: {}", projectId);
-        List<Issues> issues = issuesRepository.findByProjectId(projectId);
+        List<Issues> issues = issuesRepository.findByProject_ProjId(projectId);
         log.info("Retrieved {} issues for project id: {}", issues.size(), projectId);
         return issues;
+    }
+
+    public String deleteIssue(Integer id) {
+        try {
+            log.info("Deleting issue with id: {}", id);
+            issuesRepository.deleteById(id);
+            log.info("Issue deleted successfully for id {}", id);
+            return "Issue deleted successfully.";
+        } catch (Exception e) {
+            log.error("Failed to delete issue for id: {}. ERROR: {}", id, e.getMessage(), e);
+            return "Failed to delete issue." + e.getMessage();
+        }
     }
 }

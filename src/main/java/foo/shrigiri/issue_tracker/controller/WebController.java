@@ -6,6 +6,7 @@ import foo.shrigiri.issue_tracker.model.Users;
 import foo.shrigiri.issue_tracker.service.IssuesService;
 import foo.shrigiri.issue_tracker.service.ProjectService;
 import foo.shrigiri.issue_tracker.service.UsersService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -97,10 +98,10 @@ public class WebController {
                                 RedirectAttributes redirectAttributes) {
         log.info("Creating project: {}", project.getProjTitle());
         try {
-            // Resolve owner from logged-in user
+            // Resolve owner from logged-in user and set the full Users entity
             Users owner = usersService.findByUsername(authentication.getName());
             if (owner != null) {
-                project.setOwnerId(owner.getUserId());
+                project.setOwnerId(owner); // Projects.ownerId is a Users entity
             }
             projectService.addProject(project);
             redirectAttributes.addFlashAttribute("success", "Project created successfully.");
@@ -124,13 +125,15 @@ public class WebController {
         Projects project = projectOpt.get();
         List<Issues> issues = issuesService.getIssuesByProjectId(id);
 
-        // Resolve user IDs to usernames
+        // Build a user map for template use (userId -> username)
         List<Users> allUsers = usersService.getAllUsers();
         Map<Integer, String> userMap = allUsers.stream()
                 .collect(Collectors.toMap(Users::getUserId, Users::getUsername));
 
-        // Resolve owner username
-        String ownerName = userMap.getOrDefault(project.getOwnerId(), "Unknown");
+        // project.getOwnerId() returns a Users entity
+        String ownerName = project.getOwnerId() != null
+                ? project.getOwnerId().getUsername()
+                : "Unknown";
 
         model.addAttribute("project", project);
         model.addAttribute("issues", issues);
@@ -150,10 +153,14 @@ public class WebController {
                               RedirectAttributes redirectAttributes) {
         log.info("Creating issue '{}' for project {}", issue.getIssueTitle(), id);
         try {
-            issue.setProjectId(id);
+            // Issues.project is a Projects entity, not a raw int
+            Projects project = projectService.getProjectById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + id));
+            issue.setProject(project);
+
             Users creator = usersService.findByUsername(authentication.getName());
             if (creator != null) {
-                issue.setCreatedBy(creator.getUserId());
+                issue.setCreatedBy(creator); // Issues.createdBy is a Users entity
             }
             if (issue.getStatus() == null || issue.getStatus().isBlank()) {
                 issue.setStatus("OPEN");
@@ -181,19 +188,25 @@ public class WebController {
         }
 
         Issues issue = issueOpt.get();
-        Optional<Projects> projectOpt = projectService.getProjectById(issue.getProjectId());
+
+        // issue.getProject() returns the Projects entity
+        Projects issueProject = issue.getProject();
+        Integer projectId = issueProject != null ? issueProject.getProjId() : null;
+        String projectName = issueProject != null ? issueProject.getProjTitle() : "Unknown Project";
+
+        // issue.getCreatedBy() / getAssignedTo() return Users entities
+        String createdByName = issue.getCreatedBy() != null
+                ? issue.getCreatedBy().getUsername()
+                : "Unknown";
+        String assignedToName = issue.getAssignedTo() != null
+                ? issue.getAssignedTo().getUsername()
+                : "Unassigned";
 
         List<Users> allUsers = usersService.getAllUsers();
-        Map<Integer, String> userMap = allUsers.stream()
-                .collect(Collectors.toMap(Users::getUserId, Users::getUsername));
-
-        String createdByName = userMap.getOrDefault(issue.getCreatedBy(), "Unknown");
-        String assignedToName = userMap.getOrDefault(issue.getAssignedTo(), "Unassigned");
-        String projectName = projectOpt.map(Projects::getProjTitle).orElse("Unknown Project");
 
         model.addAttribute("issue", issue);
         model.addAttribute("projectName", projectName);
-        model.addAttribute("projectId", issue.getProjectId());
+        model.addAttribute("projectId", projectId);
         model.addAttribute("createdByName", createdByName);
         model.addAttribute("assignedToName", assignedToName);
         model.addAttribute("allUsers", allUsers);
@@ -221,5 +234,94 @@ public class WebController {
             redirectAttributes.addFlashAttribute("error", "Failed to update issue.");
         }
         return "redirect:/issues/" + id;
+    }
+
+    @PostMapping("/issues/{id}/delete")
+    public String deleteIssue(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        log.info("Deleting issue id: {}", id);
+        try {
+            Issues issue = issuesService.getIssueById(id).orElseThrow();
+            // issue.getProject() returns the Projects entity
+            Integer projectId = issue.getProject() != null ? issue.getProject().getProjId() : null;
+            issuesService.deleteIssue(id);
+            redirectAttributes.addFlashAttribute("success", "Issue #" + id + " deleted successfully.");
+            return projectId != null ? "redirect:/projects/" + projectId : "redirect:/dashboard";
+        } catch (Exception e) {
+            log.error("Failed to delete issue: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Failed to delete issue.");
+            return "redirect:/issues/" + id;
+        }
+    }
+
+    // ─── Profile ─────────────────────────────────────────────────────────────────
+
+    @GetMapping("/profile")
+    public String profilePage(Model model, Authentication authentication) {
+        String username = authentication.getName();
+        log.debug("Loading profile for user: {}", username);
+        Users user = usersService.findByUsername(username);
+        model.addAttribute("profileUser", user);
+        model.addAttribute("currentUser", username);
+        return "profile";
+    }
+
+    @PostMapping("/profile/change-password")
+    public String changePassword(RedirectAttributes redirectAttributes) {
+        // Stub — backend endpoint not yet implemented
+        redirectAttributes.addFlashAttribute("info", "Password change is coming soon.");
+        return "redirect:/profile";
+    }
+
+    @PostMapping("/profile/delete")
+    public String deleteAccount(Authentication authentication,
+                                HttpServletRequest request,
+                                RedirectAttributes redirectAttributes) {
+        String username = authentication.getName();
+        log.info("Delete account requested for user: {}", username);
+        try {
+            Users user = usersService.findByUsername(username);
+            if (user != null) {
+                usersService.deleteUser(user.getUserId());
+            }
+            // Invalidate session so Spring Security clears the principal
+            request.getSession().invalidate();
+            log.info("Account deleted and session invalidated for user: {}", username);
+        } catch (Exception e) {
+            log.error("Failed to delete account for {}: {}", username, e.getMessage());
+        }
+        return "redirect:/login?accountDeleted";
+    }
+
+    // ─── Project Update / Delete ──────────────────────────────────────────────────
+
+    @PostMapping("/projects/{id}/update")
+    public String updateProject(@PathVariable Integer id,
+                                @ModelAttribute Projects project,
+                                RedirectAttributes redirectAttributes) {
+        log.info("Updating project id: {}", id);
+        try {
+            Projects existing = projectService.getProjectById(id).orElseThrow();
+            existing.setProjTitle(project.getProjTitle());
+            existing.setProjDesc(project.getProjDesc());
+            projectService.updateProject(id, existing);
+            redirectAttributes.addFlashAttribute("success", "Project updated successfully.");
+        } catch (Exception e) {
+            log.error("Failed to update project: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Failed to update project.");
+        }
+        return "redirect:/projects/" + id;
+    }
+
+    @PostMapping("/projects/{id}/delete")
+    public String deleteProject(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        log.info("Deleting project id: {}", id);
+        try {
+            projectService.deleteProject(id);
+            redirectAttributes.addFlashAttribute("success", "Project deleted successfully.");
+        } catch (Exception e) {
+            log.error("Failed to delete project: {}", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Failed to delete project.");
+        }
+        return "redirect:/dashboard";
     }
 }

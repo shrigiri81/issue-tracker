@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -62,6 +63,9 @@ public class UsersService {
 
     public Users register(Users user) {
         log.info("Registering new user: {}", user.getUsername());
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole("USER");
+        }
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setHashedPassword(encodedPassword);
         user.setPassword(null);
@@ -124,5 +128,22 @@ public class UsersService {
         savedUser.setPassword(null);
         log.info("User updated successfully with id: {}", savedUser.getUserId());
         return savedUser;
+    }
+
+    public String updatePassword(Integer id, String currentPassword, String newPassword) {
+        log.info("Updating password: finding if user with id {} exists.", id);
+        Users user1 = usersRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        log.info("Updating password for user id {}", id);
+        if (!Objects.equals(currentPassword, user1.getPassword())) {
+            return "Current password is incorrect.";
+        }
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        log.info("Updating password: raw password from user encoded successfully; Setting it to user object with id {}.", id);
+        user1.setHashedPassword(encodedPassword);
+        user1.setPassword(null);
+        log.info("Updating password: saving to database");
+        usersRepository.save(user1);
+        log.info("Updating password: Password updated successfully");
+        return "Password updated successfully";
     }
 }
