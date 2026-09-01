@@ -747,3 +747,218 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .w-full { width: 100%; }
 .font-semibold { font-weight: 600; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Team Member Selector & Chips ───────────────────────────────────────────── */
+.member-picker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-picker-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+}
+
+.member-picker-search input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.8rem;
+    color: var(--text);
+    width: 100%;
+    font-family: inherit;
+}
+
+.member-picker-search input::placeholder {
+    color: var(--text-dim);
+}
+
+.member-picker-list {
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background var(--transition);
+    user-select: none;
+}
+
+.member-option:hover {
+    background: var(--surface-2);
+}
+
+.member-option input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.member-option-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.member-option-name {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.member-option-sub {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+}
+
+.member-avatar {
+    width: 24px;
+    height: 24px;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 0.68rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+}
+
+/* ── Selected Members Summary / Chips ── */
+.selected-members-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    align-items: center;
+    font-size: 0.75rem;
+}
+
+.member-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2px 8px 2px 4px;
+    font-size: 0.74rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.member-chip-remove {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.member-chip-remove:hover {
+    color: var(--danger);
+}
+
+/* ── Avatar Stack for Project Cards ── */
+.avatar-stack {
+    display: flex;
+    align-items: center;
+}
+
+.avatar-stack-item {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 0.62rem;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--surface);
+    margin-left: -6px;
+}
+
+.avatar-stack-item:first-child {
+    margin-left: 0;
+}
+
+.avatar-stack-more {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 6px;
+}
+
+/* ── Team Members List in Project Detail Sidebar ── */
+.members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.member-row-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.member-row-name {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.member-row-role {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.owner-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: var(--accent-light);
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 10px;
+    line-height: 1.4;
+}
+

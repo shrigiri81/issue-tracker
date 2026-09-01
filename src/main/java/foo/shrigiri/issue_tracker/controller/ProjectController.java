@@ -5,7 +5,7 @@ import foo.shrigiri.issue_tracker.service.ProjectService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.ui.Model;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,9 +23,9 @@ public class ProjectController {
     }
 
     @GetMapping("/api/projects")
-    public ResponseEntity<List<Projects>> getAllProjects(Model model) {
-        log.debug("Fetching all projects");
-        List<Projects> projects = projectService.getAllProjects();
+    public ResponseEntity<List<Projects>> getAllProjects(Authentication auth) {
+        log.debug("Fetching all projects for");
+        List<Projects> projects = projectService.getAllProjects(auth.getName());
         log.info("Fetched {} projects", projects.size());
         return ResponseEntity.ok(projects);
     }
@@ -44,9 +44,9 @@ public class ProjectController {
     }
 
     @PostMapping("/api/projects")
-    public ResponseEntity<Projects> addProject(@RequestBody Projects project) {
+    public ResponseEntity<Projects> addProject(@RequestBody Projects project, @RequestParam List<Integer> projectMembersUserIds) {
         log.info("Adding new project: {}", project.getProjTitle());
-        Projects saved = projectService.addProject(project);
+        Projects saved = projectService.addProject(project, projectMembersUserIds);
         log.info("Project added successfully with id: {}", saved.getProjId());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -60,9 +60,9 @@ public class ProjectController {
     }
 
     @PutMapping("/api/projects/{id}")
-    public ResponseEntity<Projects> updateProject(@PathVariable Integer id, @RequestBody Projects project) {
+    public ResponseEntity<Projects> updateProject(@PathVariable Integer id, @RequestBody Projects project, @RequestParam List<Integer> projectMembersUserIds) {
         log.info("Updating project with id: {}", project.getProjId());
-        Projects updated = projectService.updateProject(id, project);
+        Projects updated = projectService.updateProject(id, project, projectMembersUserIds);
         log.info("Project updated successfully for id: {}", updated.getProjId());
         return ResponseEntity.ok(updated);
     }

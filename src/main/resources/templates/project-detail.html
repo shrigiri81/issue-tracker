@@ -7,29 +7,87 @@
     <meta name="description" th:content="'Issues for ' + ${project.projTitle}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
     <style>
-        .edit-project-form { display: none; }
-        .edit-project-form.visible { display: flex; flex-direction: column; gap: 14px; }
-
-        /* Modal */
+        /* ── Modals (shared) ── */
         .modal-overlay {
             display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
-            z-index: 1000; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+            z-index: 200; align-items: center; justify-content: center;
         }
         .modal-overlay.active { display: flex; }
+
         .modal-box {
-            background: var(--surface); border: 1px solid var(--border);
-            border-radius: 14px; padding: 32px 28px; max-width: 420px; width: 90%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.4); animation: modalIn 0.2s ease;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+            animation: modalIn 0.2s ease;
         }
         @keyframes modalIn {
-            from { opacity:0; transform: scale(0.94) translateY(8px); }
-            to   { opacity:1; transform: scale(1) translateY(0); }
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .modal-icon { width:48px; height:48px; border-radius:50%; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:1.4rem; }
-        .modal-title  { font-size:1.05rem; font-weight:700; margin-bottom:8px; }
-        .modal-desc   { font-size:0.85rem; color:var(--text-muted); margin-bottom:24px; line-height:1.6; }
-        .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 24px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-head-left { display: flex; align-items: center; gap: 12px; }
+        .modal-head-icon {
+            width: 34px; height: 34px;
+            background: var(--accent-light);
+            border-radius: 8px;
+            display: grid; place-items: center;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .modal-head h2 {
+            font-size: 0.95rem; font-weight: 600;
+            color: var(--text); letter-spacing: -0.01em;
+        }
+        .modal-head p {
+            font-size: 0.76rem; color: var(--text-muted); margin-top: 1px;
+        }
+        .modal-close {
+            width: 28px; height: 28px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--surface-2);
+            cursor: pointer; display: grid; place-items: center;
+            color: var(--text-muted); font-size: 1rem; line-height: 1;
+            transition: background var(--transition), color var(--transition);
+        }
+        .modal-close:hover { background: var(--danger-light); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+
+        .modal-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+        .modal-footer {
+            padding: 14px 24px; border-top: 1px solid var(--border);
+            display: flex; justify-content: flex-end; gap: 8px;
+            background: var(--surface-2); border-radius: 0 0 14px 14px;
+        }
+
+        /* ── Delete confirm modal ── */
+        .confirm-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 28px 24px; max-width: 400px; width: 90%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            animation: modalIn 0.2s ease;
+        }
+        .confirm-icon {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(192,69,58,0.1); display: flex;
+            align-items: center; justify-content: center;
+            font-size: 1.3rem; margin-bottom: 14px;
+        }
+        .confirm-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+        .confirm-desc  { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 22px; line-height: 1.6; }
+        .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* ── Edit project form ── */
+        .edit-project-form { display: none; }
+        .edit-project-form.visible { display: flex; flex-direction: column; gap: 14px; }
     </style>
 </head>
 <body>
@@ -71,7 +129,7 @@
             <div class="topbar-title" th:text="${project.projTitle}">Project Name</div>
             <div class="topbar-search">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="issue-search" placeholder="Filter issues…" autocomplete="off">
+                <input type="text" id="issue-search" placeholder="Filter issues…" autocomplete="off" aria-label="Filter issues">
             </div>
             <a th:href="@{/profile}" class="user-pill" style="text-decoration:none;cursor:pointer">
                 <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
@@ -102,67 +160,10 @@
                         &nbsp;·&nbsp;<span th:text="${issues.size()} + ' issue(s)'">0 issues</span>
                     </p>
                 </div>
-                <button id="new-issue-btn" class="btn btn-primary"
-                        onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">
+                <button id="new-issue-btn" class="btn btn-primary" onclick="openCreateIssueModal()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     New Issue
                 </button>
-            </div>
-
-            <!-- New Issue Panel -->
-            <div class="panel mb-4">
-                <div class="panel-header" onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">
-                    <span>+ Create New Issue</span>
-                    <span class="panel-arrow">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                    </span>
-                </div>
-                <div id="new-issue-panel" class="panel-body">
-                    <form th:action="@{/projects/{id}/issues(id=${project.projId})}" method="post"
-                          style="display:flex;flex-direction:column;gap:14px">
-                        <div class="form-group">
-                            <label class="form-label" for="issue-title">Issue Title *</label>
-                            <input id="issue-title" name="issueTitle" type="text" class="form-control"
-                                   placeholder="Brief summary of the issue" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="issue-desc">Description</label>
-                            <textarea id="issue-desc" name="issueDesc" class="form-control"
-                                      placeholder="Describe the issue in detail…"></textarea>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label" for="issue-status">Status</label>
-                                <select id="issue-status" name="status" class="form-control">
-                                    <option value="OPEN">Open</option>
-                                    <option value="IN_PROGRESS">In Progress</option>
-                                    <option value="CLOSED">Closed</option>
-                                    <option value="MERGED">Merged</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="issue-priority">Priority</label>
-                                <select id="issue-priority" name="priority" class="form-control">
-                                    <option value="LOW">Low</option>
-                                    <option value="MEDIUM" selected>Medium</option>
-                                    <option value="HIGH">High</option>
-                                    <option value="CRITICAL">Critical</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="issue-assignee">Assign To</label>
-                            <select id="issue-assignee" name="assignedTo" class="form-control">
-                                <option value="">— Unassigned —</option>
-                                <option th:each="u : ${allUsers}" th:value="${u.userId}" th:text="${u.username}">User</option>
-                            </select>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-secondary" onclick="togglePanel('new-issue-panel')" data-panel="new-issue-panel">Cancel</button>
-                            <button id="create-issue-submit" type="submit" class="btn btn-primary">Create Issue</button>
-                        </div>
-                    </form>
-                </div>
             </div>
 
             <!-- Two-column layout -->
@@ -193,7 +194,11 @@
                                     <td colspan="7">
                                         <div class="table-empty">
                                             <div class="empty-icon">🔍</div>
-                                            <p>No issues yet. Click "New Issue" to create the first one.</p>
+                                            <p>No issues yet.</p>
+                                            <button class="btn btn-primary btn-sm" onclick="openCreateIssueModal()" style="margin-top:12px">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                                Create First Issue
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -223,8 +228,10 @@
                                         <form th:action="@{/issues/{id}/delete(id=${issue.issueId})}" method="post" style="margin:0"
                                               th:id="'del-form-' + ${issue.issueId}">
                                             <button type="button" class="btn btn-sm"
-                                                    style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);padding:4px 10px"
-                                                    th:attr="onclick='confirmDeleteIssue(' + ${issue.issueId} + ', \'' + ${issue.issueTitle} + '\')'">✕</button>
+                                                    style="background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.22);padding:5px 8px"
+                                                    th:attr="onclick='openDeleteIssueModal(' + ${issue.issueId} + ', \'' + ${issue.issueTitle} + '\')'">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                            </button>
                                         </form>
                                     </td>
                                 </tr>
@@ -265,6 +272,27 @@
                             <span class="meta-label">Total Issues</span>
                             <span class="meta-value" th:text="${issues.size()}">0</span>
                         </div>
+                        <div class="meta-item">
+                            <div style="display:flex;align-items:center;justify-content:space-between">
+                                <span class="meta-label">Team Members</span>
+                                <span class="badge-count" th:text="${project.projectMembers != null ? project.projectMembers.size() : 0} + ' members'">0 members</span>
+                            </div>
+                            <div class="members-list">
+                                <div th:if="${project.projectMembers == null or project.projectMembers.isEmpty()}" class="text-muted" style="font-size:0.78rem">
+                                    No team members assigned.
+                                </div>
+                                <div class="member-row" th:each="m : ${project.projectMembers}">
+                                    <div class="member-avatar" th:text="${#strings.length(m.username) > 0 ? #strings.substring(m.username, 0, 1).toUpperCase() : 'U'}">U</div>
+                                    <div class="member-row-info">
+                                        <div class="member-row-name">
+                                            <span th:text="${m.username}">username</span>
+                                            <span th:if="${project.ownerId != null and m.userId == project.ownerId.userId}" class="owner-tag">Owner</span>
+                                        </div>
+                                        <div class="member-row-role" th:text="${m.email ?: m.role ?: 'Member'}">email@example.com</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Action buttons -->
@@ -295,6 +323,28 @@
                                 <textarea id="edit-proj-desc" name="projDesc" class="form-control"
                                           rows="4" th:text="${project.projDesc}"></textarea>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Team Members</label>
+                                <div class="member-picker" id="edit-member-picker">
+                                    <div class="member-picker-search">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                        <input type="text" placeholder="Search team members…" autocomplete="off" aria-label="Search team members">
+                                    </div>
+                                    <div class="member-picker-list">
+                                        <label class="member-option" th:each="u : ${allUsers}"
+                                               th:attr="data-name=${u.username},data-sub=${u.email}">
+                                            <input type="checkbox" name="memberIds" th:value="${u.userId}"
+                                                   th:checked="${project.projectMembers != null and #lists.contains(project.projectMembers.![userId], u.userId)}">
+                                            <span class="member-avatar" th:text="${#strings.length(u.username) > 0 ? #strings.substring(u.username, 0, 1).toUpperCase() : 'U'}">U</span>
+                                            <span class="member-option-info">
+                                                <span class="member-option-name" th:text="${u.username}">username</span>
+                                                <span class="member-option-sub" th:text="${u.email ?: u.role ?: 'User'}">email@example.com</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="selected-members-bar"></div>
+                                </div>
+                            </div>
                             <div class="form-actions">
                                 <button type="button" class="btn btn-secondary btn-sm" onclick="toggleProjectEdit()">Cancel</button>
                                 <button id="save-project-btn" type="submit" class="btn btn-primary btn-sm">Save</button>
@@ -310,20 +360,128 @@
     </div>
 </div>
 
-<!-- Delete Project Modal -->
-<div id="delete-project-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="del-proj-title">
+<!-- ── Create Issue Modal ──────────────────────────────────────────────────── -->
+<div id="create-issue-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ci-modal-title">
     <div class="modal-box">
-        <div class="modal-icon">🗑️</div>
-        <div class="modal-title" id="del-proj-title">Delete Project?</div>
-        <div class="modal-desc">
-            This will permanently delete the project
-            <strong th:text="${project.projTitle}">Project</strong>
-            and all its issues. This action cannot be undone.
+        <div class="modal-head">
+            <div class="modal-head-left">
+                <div class="modal-head-icon">🐛</div>
+                <div>
+                    <h2 id="ci-modal-title">New Issue</h2>
+                    <p th:text="'Reporting for ' + ${project.projTitle}">Project name</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeCreateIssueModal()" title="Close">✕</button>
         </div>
-        <div class="modal-actions">
+
+        <form th:action="@{/projects/{id}/issues(id=${project.projId})}" method="post">
+            <div class="modal-body">
+                <!-- Title -->
+                <div class="form-group">
+                    <label class="form-label" for="ci-title">Issue Title <span style="color:var(--danger)">*</span></label>
+                    <input id="ci-title" name="issueTitle" type="text" class="form-control"
+                           placeholder="Brief summary of the issue" required>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label class="form-label" for="ci-desc">Description</label>
+                    <textarea id="ci-desc" name="issueDesc" class="form-control" rows="4"
+                              placeholder="Steps to reproduce, expected vs actual behaviour…"></textarea>
+                </div>
+
+                <!-- Status & Priority -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="ci-status">Status</label>
+                        <select id="ci-status" name="status" class="form-control">
+                            <option value="OPEN">Open</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="CLOSED">Closed</option>
+                            <option value="MERGED">Merged</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ci-priority">Priority</label>
+                        <select id="ci-priority" name="priority" class="form-control">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="HIGH">High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Assignee -->
+                <div class="form-group">
+                    <label class="form-label" for="ci-assignee">Assign To</label>
+                    <select id="ci-assignee" name="assignedTo" class="form-control">
+                        <option value="">— Unassigned —</option>
+                        <option th:each="u : ${allUsers}" th:value="${u.userId}" th:text="${u.username}">User</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCreateIssueModal()">Cancel</button>
+                <button id="ci-submit-btn" type="submit" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Create Issue
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Delete Issue Modal ────────────────────────────────────────────────── -->
+<div id="delete-issue-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="confirm-box">
+        <div class="confirm-icon">🗑️</div>
+        <div class="confirm-title" id="di-modal-title">Delete Issue?</div>
+        <div class="confirm-desc" id="di-modal-desc">This issue will be permanently deleted.</div>
+        <div class="confirm-actions">
+            <button class="btn btn-secondary btn-sm" onclick="closeDeleteIssueModal()">Cancel</button>
+            <button id="di-confirm-btn" class="btn btn-danger btn-sm" onclick="submitDeleteIssue()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                Delete Issue
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Delete Project Modal ───────────────────────────────────────────────── -->
+<div id="delete-project-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="del-proj-title">
+    <div class="confirm-box" style="max-width:440px">
+        <div class="confirm-icon">🗑️</div>
+        <div class="confirm-title" id="del-proj-title">Delete Project?</div>
+        <div class="confirm-desc">
+            This will permanently delete <strong th:text="${project.projTitle}">Project</strong> and all its issues.
+        </div>
+        <!-- Red warning -->
+        <div style="display:flex;align-items:flex-start;gap:8px;background:rgba(192,69,58,0.08);border:1px solid rgba(192,69,58,0.22);border-radius:7px;padding:10px 13px;margin-bottom:18px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c0453a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span style="font-size:0.8rem;color:#c0453a;line-height:1.5">
+                <strong>All <span th:text="${issues.size()}">0</span> issue(s) in this project will be permanently deleted.</strong>
+                This action <em>cannot</em> be undone.
+            </span>
+        </div>
+        <!-- Type-to-confirm -->
+        <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label" for="del-proj-confirm-input">
+                Type <strong th:text="${project.projTitle}">project name</strong> to confirm
+            </label>
+            <input id="del-proj-confirm-input" type="text" class="form-control"
+                   placeholder="Enter project name…"
+                   th:attr="data-expected=${project.projTitle}"
+                   oninput="onDeleteProjectConfirmInput()">
+        </div>
+        <div class="confirm-actions">
             <button class="btn btn-secondary btn-sm" onclick="closeDeleteProjectModal()">Cancel</button>
             <form th:action="@{/projects/{id}/delete(id=${project.projId})}" method="post" style="margin:0">
-                <button id="confirm-delete-project-btn" type="submit" class="btn btn-danger btn-sm">Yes, Delete Project</button>
+                <button id="confirm-delete-project-btn" type="submit" class="btn btn-danger btn-sm" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    Delete Project
+                </button>
             </form>
         </div>
     </div>
@@ -331,53 +489,96 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script>
-    // ── Issue filter ──────────────────────────────────────────────────────────
+    // ── Issue table filter ────────────────────────────────────────────────────
     document.getElementById('issue-search').addEventListener('input', function () {
         const q = this.value.toLowerCase();
         document.querySelectorAll('#issues-table tbody tr[data-title]').forEach(function (row) {
-            const title = (row.getAttribute('data-title') || '').toLowerCase();
-            row.style.display = title.includes(q) ? '' : 'none';
+            row.style.display = (row.getAttribute('data-title') || '').toLowerCase().includes(q) ? '' : 'none';
         });
     });
 
-    // ── Inline issue delete ───────────────────────────────────────────────────
-    function confirmDeleteIssue(id, title) {
-        if (confirm('Delete issue #' + id + ' — "' + title + '"?\nThis action cannot be undone.')) {
-            document.getElementById('del-form-' + id).submit();
+    // ── Delete Issue Modal ────────────────────────────────────────────────────
+    let _deleteIssueTargetId = null;
+
+    function openDeleteIssueModal(id, title) {
+        _deleteIssueTargetId = id;
+        document.getElementById('di-modal-title').textContent = 'Delete Issue #' + id + '?';
+        document.getElementById('di-modal-desc').textContent  = '"' + title + '" will be permanently deleted. This cannot be undone.';
+        document.getElementById('delete-issue-modal').classList.add('active');
+    }
+
+    function closeDeleteIssueModal() {
+        document.getElementById('delete-issue-modal').classList.remove('active');
+        _deleteIssueTargetId = null;
+    }
+
+    function submitDeleteIssue() {
+        if (_deleteIssueTargetId !== null) {
+            document.getElementById('del-form-' + _deleteIssueTargetId).submit();
         }
     }
 
-    // ── Project edit toggle ───────────────────────────────────────────────────
-    function toggleProjectEdit() {
-        const section = document.getElementById('project-edit-section');
-        const viewMode = document.getElementById('project-view-mode');
-        const btn = document.getElementById('edit-project-btn');
-        const isOpen = section.style.display === 'none';
-        section.style.display = isOpen ? '' : 'none';
-        viewMode.style.display = isOpen ? 'none' : '';
-        btn.textContent = isOpen ? 'Cancel Edit' : 'Edit Project';
-        if (!isOpen) {
-            // Reset button icon when cancelling
-            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Edit Project';
-        }
+    // ── Create Issue Modal ────────────────────────────────────────────────────
+    function openCreateIssueModal() {
+        document.getElementById('create-issue-modal').classList.add('active');
+        setTimeout(() => document.getElementById('ci-title').focus(), 100);
     }
 
-    // ── Project delete modal ──────────────────────────────────────────────────
+    function closeCreateIssueModal() {
+        document.getElementById('create-issue-modal').classList.remove('active');
+    }
+
+    // ── Delete Project Modal ──────────────────────────────────────────────────
     function openDeleteProjectModal() {
+        // Reset confirm input & button state each time it's opened
+        const input = document.getElementById('del-proj-confirm-input');
+        const btn   = document.getElementById('confirm-delete-project-btn');
+        if (input) input.value = '';
+        if (btn)   btn.disabled = true;
         document.getElementById('delete-project-modal').classList.add('active');
+        setTimeout(() => input && input.focus(), 120);
     }
 
     function closeDeleteProjectModal() {
         document.getElementById('delete-project-modal').classList.remove('active');
     }
 
-    document.getElementById('delete-project-modal').addEventListener('click', function (e) {
-        if (e.target === this) closeDeleteProjectModal();
+    function onDeleteProjectConfirmInput() {
+        const input    = document.getElementById('del-proj-confirm-input');
+        const btn      = document.getElementById('confirm-delete-project-btn');
+        const expected = input.getAttribute('data-expected') || '';
+        btn.disabled   = input.value.trim() !== expected;
+    }
+
+    // ── Project edit toggle ───────────────────────────────────────────────────
+    function toggleProjectEdit() {
+        const section  = document.getElementById('project-edit-section');
+        const viewMode = document.getElementById('project-view-mode');
+        const btn      = document.getElementById('edit-project-btn');
+        const isOpen   = section.style.display === 'none';
+        section.style.display  = isOpen ? '' : 'none';
+        viewMode.style.display = isOpen ? 'none' : '';
+        if (isOpen) {
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel Edit';
+        } else {
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> Edit Project';
+        }
+    }
+
+    // ── Close modals on backdrop click or Escape ──────────────────────────────
+    ['create-issue-modal', 'delete-issue-modal', 'delete-project-modal'].forEach(function (id) {
+        const el = document.getElementById(id);
+        el.addEventListener('click', function (e) {
+            if (e.target === el) {
+                el.classList.remove('active');
+                if (id === 'delete-issue-modal') _deleteIssueTargetId = null;
+            }
+        });
     });
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-            closeDeleteProjectModal();
+            document.querySelectorAll('.modal-overlay.active').forEach(function (m) { m.classList.remove('active'); });
         }
     });
 </script>

@@ -6,6 +6,85 @@
     <title>Dashboard · Issue Tracker</title>
     <meta name="description" content="View and manage all your projects">
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <style>
+        /* ── Create Project Modal ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+            z-index: 200; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+            animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 24px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-head-left { display: flex; align-items: center; gap: 12px; }
+        .modal-head-icon {
+            width: 34px; height: 34px;
+            background: var(--accent-light);
+            border-radius: 8px;
+            display: grid; place-items: center;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .modal-head h2 {
+            font-size: 0.95rem; font-weight: 600;
+            color: var(--text); letter-spacing: -0.01em;
+        }
+        .modal-head p {
+            font-size: 0.76rem; color: var(--text-muted); margin-top: 1px;
+        }
+        .modal-close {
+            width: 28px; height: 28px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--surface-2);
+            cursor: pointer; display: grid; place-items: center;
+            color: var(--text-muted); font-size: 1rem; line-height: 1;
+            transition: background var(--transition), color var(--transition);
+        }
+        .modal-close:hover { background: var(--danger-light); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+
+        .modal-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+        .modal-footer {
+            padding: 14px 24px; border-top: 1px solid var(--border);
+            display: flex; justify-content: flex-end; gap: 8px;
+            background: var(--surface-2); border-radius: 0 0 14px 14px;
+        }
+
+        /* Confirm delete modal */
+        .confirm-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 28px 24px; max-width: 400px; width: 90%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            animation: modalIn 0.2s ease;
+        }
+        .confirm-icon {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(192,69,58,0.1); display: flex;
+            align-items: center; justify-content: center;
+            font-size: 1.3rem; margin-bottom: 14px;
+        }
+        .confirm-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+        .confirm-desc  { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 22px; line-height: 1.6; }
+        .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    </style>
 </head>
 <body>
 
@@ -46,7 +125,7 @@
             <div class="topbar-title">Dashboard</div>
             <div class="topbar-search">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="search-input" placeholder="Search projects…" autocomplete="off">
+                <input type="text" id="search-input" placeholder="Search projects…" autocomplete="off" aria-label="Search projects">
             </div>
             <a th:href="@{/profile}" class="user-pill" style="text-decoration:none;cursor:pointer">
                 <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
@@ -70,50 +149,24 @@
                     <h1>Projects</h1>
                     <p class="page-subtitle" th:text="${projects.size()} + ' project(s) in your workspace'">All projects</p>
                 </div>
-                <button id="new-project-btn" class="btn btn-primary"
-                        onclick="togglePanel('new-project-panel')"
-                        data-panel="new-project-panel">
+                <button id="new-project-btn" class="btn btn-primary" onclick="openCreateProjectModal()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     New Project
                 </button>
-            </div>
-
-            <!-- New Project Panel -->
-            <div class="panel mb-4">
-                <div class="panel-header" onclick="togglePanel('new-project-panel')" data-panel="new-project-panel">
-                    <span>+ Create New Project</span>
-                    <span class="panel-arrow">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                    </span>
-                </div>
-                <div id="new-project-panel" class="panel-body">
-                    <form th:action="@{/projects}" method="post" style="display:flex;flex-direction:column;gap:14px">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label" for="proj-title">Project Title *</label>
-                                <input id="proj-title" name="projTitle" type="text" class="form-control" placeholder="e.g. Backend API v2" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="proj-desc">Description</label>
-                                <input id="proj-desc" name="projDesc" type="text" class="form-control" placeholder="Short description…">
-                            </div>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-secondary" onclick="togglePanel('new-project-panel')" data-panel="new-project-panel">Cancel</button>
-                            <button id="create-project-submit" type="submit" class="btn btn-primary">Create Project</button>
-                        </div>
-                    </form>
-                </div>
             </div>
 
             <!-- Projects Grid -->
             <div class="projects-grid" id="projects-grid">
 
                 <!-- Empty state -->
-                <div th:if="${projects.isEmpty()}" style="grid-column:1/-1;text-align:center;padding:64px 20px;color:var(--text-muted)">
-                    <div style="font-size:3rem;margin-bottom:16px;opacity:0.4">📁</div>
+                <div th:if="${projects.isEmpty()}" style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text-muted)">
+                    <div style="font-size:3rem;margin-bottom:16px;opacity:0.35">📁</div>
                     <p style="font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)">No projects yet</p>
-                    <p style="font-size:0.83rem">Click "New Project" to create your first one.</p>
+                    <p style="font-size:0.83rem;margin-bottom:20px">Click "New Project" to create your first one.</p>
+                    <button class="btn btn-primary" onclick="openCreateProjectModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Create First Project
+                    </button>
                 </div>
 
                 <!-- Project Cards -->
@@ -126,9 +179,19 @@
                         <div class="project-title" th:text="${p.projTitle}">Project Name</div>
                         <div class="project-desc" th:text="${p.projDesc ?: 'No description provided.'}">Description</div>
                     </div>
-                    <div class="project-meta">
+                    <div class="project-meta" style="display:flex;align-items:center;justify-content:space-between">
                         <span th:if="${p.createdAt != null}"
                               th:text="'Created ' + ${#dates.format(p.createdAt, 'dd MMM yyyy')}">Created date</span>
+                        <div class="avatar-stack" th:if="${p.projectMembers != null and !p.projectMembers.isEmpty()}">
+                            <div class="avatar-stack-item"
+                                 th:each="m, iter : ${p.projectMembers}"
+                                 th:if="${iter.index < 3}"
+                                 th:title="${m.username}"
+                                 th:text="${#strings.length(m.username) > 0 ? #strings.substring(m.username, 0, 1).toUpperCase() : 'U'}">U</div>
+                            <span class="avatar-stack-more"
+                                  th:if="${p.projectMembers.size() > 3}"
+                                  th:text="'+' + (${p.projectMembers.size() - 3})"></span>
+                        </div>
                     </div>
                     <div class="project-card-footer">
                         <a th:href="@{/projects/{id}(id=${p.projId})}" class="btn btn-secondary btn-sm">
@@ -143,9 +206,79 @@
     </div>
 </div>
 
+<!-- ── Create Project Modal ─────────────────────────────────────────────────── -->
+<div id="create-project-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cp-modal-title">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div class="modal-head-left">
+                <div class="modal-head-icon">📋</div>
+                <div>
+                    <h2 id="cp-modal-title">Create New Project</h2>
+                    <p>Set up a workspace for your team</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeCreateProjectModal()" title="Close">✕</button>
+        </div>
+
+        <form th:action="@{/projects}" method="post">
+            <div class="modal-body">
+                <!-- Title -->
+                <div class="form-group">
+                    <label class="form-label" for="cp-title">Project Title <span style="color:var(--danger)">*</span></label>
+                    <input id="cp-title" name="projTitle" type="text" class="form-control"
+                           placeholder="e.g. Backend API v2, Mobile App…" required autofocus>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label class="form-label" for="cp-desc">Description</label>
+                    <textarea id="cp-desc" name="projDesc" class="form-control" rows="3"
+                              placeholder="What is this project about?"></textarea>
+                </div>
+
+                <!-- Team Members -->
+                <div class="form-group">
+                    <label class="form-label">Team Members</label>
+                    <div class="member-picker" id="create-member-picker" th:attr="data-current-user=${currentUser}">
+                        <div class="member-picker-search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="cp-member-search" placeholder="Search members…" autocomplete="off" aria-label="Search team members">
+                        </div>
+                        <div class="member-picker-list" id="cp-member-list">
+                            <!-- Populated server-side -->
+                            <label class="member-option" th:each="u : ${allUsers}"
+                                   th:attr="data-name=${u.username},data-sub=${u.email}">
+                                <input type="checkbox" name="memberIds" th:value="${u.userId}"
+                                       th:checked="${u.username == currentUser}">
+                                <span class="member-avatar" th:text="${#strings.length(u.username) > 0 ? #strings.substring(u.username, 0, 1).toUpperCase() : 'U'}">U</span>
+                                <span class="member-option-info">
+                                    <span class="member-option-name">
+                                        <span th:text="${u.username}">username</span>
+                                        <span th:if="${u.username == currentUser}" class="owner-tag">You</span>
+                                    </span>
+                                    <span class="member-option-sub" th:text="${u.email ?: u.role ?: 'Member'}">email</span>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="selected-members-bar" id="cp-chips-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCreateProjectModal()">Cancel</button>
+                <button id="cp-submit-btn" type="submit" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Create Project
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script th:src="@{/js/app.js}"></script>
 <script>
-    // Client-side project search filter
+    // ── Project search filter ─────────────────────────────────────────────────
     document.getElementById('search-input').addEventListener('input', function () {
         const q = this.value.toLowerCase();
         document.querySelectorAll('.project-card').forEach(function (card) {
@@ -153,6 +286,64 @@
             card.style.display = title.includes(q) ? '' : 'none';
         });
     });
+
+    // ── Create Project Modal ──────────────────────────────────────────────────
+    function openCreateProjectModal() {
+        document.getElementById('create-project-modal').classList.add('active');
+        setTimeout(() => document.getElementById('cp-title').focus(), 100);
+    }
+
+    function closeCreateProjectModal() {
+        document.getElementById('create-project-modal').classList.remove('active');
+    }
+
+    document.getElementById('create-project-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeCreateProjectModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeCreateProjectModal();
+    });
+
+    // ── Member picker search filter ───────────────────────────────────────────
+    document.getElementById('cp-member-search').addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        document.querySelectorAll('#cp-member-list .member-option').forEach(function (opt) {
+            const name = (opt.getAttribute('data-name') || '').toLowerCase();
+            const sub  = (opt.getAttribute('data-sub')  || '').toLowerCase();
+            opt.style.display = (name.includes(q) || sub.includes(q)) ? 'flex' : 'none';
+        });
+    });
+
+    // ── Member chips ──────────────────────────────────────────────────────────
+    function refreshChips() {
+        const bar = document.getElementById('cp-chips-bar');
+        bar.innerHTML = '';
+        let count = 0;
+        document.querySelectorAll('#cp-member-list input[type="checkbox"]:checked').forEach(function (cb) {
+            count++;
+            const opt  = cb.closest('.member-option');
+            const name = opt ? (opt.getAttribute('data-name') || 'User') : 'User';
+            const chip = document.createElement('span');
+            chip.className = 'member-chip';
+            chip.innerHTML = `<span class="member-avatar" style="width:18px;height:18px;font-size:0.55rem">${name.charAt(0).toUpperCase()}</span><span>${name}</span><button type="button" class="member-chip-remove" title="Remove">✕</button>`;
+            chip.querySelector('.member-chip-remove').addEventListener('click', function () {
+                cb.checked = false;
+                refreshChips();
+            });
+            bar.appendChild(chip);
+        });
+        if (count === 0) {
+            bar.innerHTML = '<span style="color:var(--text-dim);font-size:0.75rem">No members selected</span>';
+        }
+    }
+
+    document.querySelectorAll('#cp-member-list input[type="checkbox"]').forEach(function (cb) {
+        cb.addEventListener('change', refreshChips);
+    });
+
+    // Initial chip render on load
+    refreshChips();
 </script>
 </body>
 </html>

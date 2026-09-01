@@ -15,7 +15,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +36,7 @@ public class SecurityConfig {
     // ─── Web (Thymeleaf) Filter Chain — Order 1 (higher priority) ───────────────
     @Bean
     @Order(1)
-    SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain webFilterChain(HttpSecurity http) {
         log.info("Configuring web (session-based) security filter chain");
         SecurityFilterChain chain = http
                 .securityMatcher("/", "/login", "/register", "/dashboard", "/projects/**", "/issues/**",
@@ -65,7 +68,7 @@ public class SecurityConfig {
     // ─── API (JWT / stateless) Filter Chain — Order 2 ────────────────────────────
     @Bean
     @Order(2)
-    SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain apiFilterChain(HttpSecurity http) {
         log.info("Configuring API (JWT) security filter chain");
         SecurityFilterChain chain = http
                 .securityMatcher("/api/**", "/actuator/**")
@@ -76,7 +79,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/api/login", "/api/register")
                         .permitAll()
                         .anyRequest().authenticated())
-                .httpBasic(basic -> {})
+//                .httpBasic(basic -> {})
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
                 .build();
         log.info("API security filter chain configured successfully");
@@ -84,7 +87,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+    AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) {
         log.info("Initializing AuthenticationManager");
         return authConfig.getAuthenticationManager();
     }

@@ -75,7 +75,7 @@ public class WebController {
     @GetMapping("/dashboard")
     public String dashboard(Model model, Authentication authentication) {
         log.debug("Loading dashboard");
-        List<Projects> projects = projectService.getAllProjects();
+        List<Projects> projects = projectService.getAllProjects(authentication.getName());
 
         // Build issue count map: projectId -> count
         Map<Integer, Long> issueCountMap = projects.stream()
@@ -86,14 +86,17 @@ public class WebController {
 
         model.addAttribute("projects", projects);
         model.addAttribute("issueCountMap", issueCountMap);
-        model.addAttribute("currentUser", authentication != null ? authentication.getName() : "");
+        model.addAttribute("currentUser", authentication.getName());
         model.addAttribute("newProject", new Projects());
+        // Inject all users so the create-project member picker is populated server-side
+        model.addAttribute("allUsers", usersService.getAllUsers());
         log.info("Dashboard loaded with {} projects", projects.size());
         return "dashboard";
     }
 
     @PostMapping("/projects")
     public String createProject(@ModelAttribute Projects project,
+                                @RequestParam(value = "memberIds", required = false) List<Integer> memberIds,
                                 Authentication authentication,
                                 RedirectAttributes redirectAttributes) {
         log.info("Creating project: {}", project.getProjTitle());
@@ -103,7 +106,8 @@ public class WebController {
             if (owner != null) {
                 project.setOwnerId(owner); // Projects.ownerId is a Users entity
             }
-            projectService.addProject(project);
+            List<Integer> ids = memberIds != null ? memberIds : List.of();
+            projectService.addProject(project, ids);
             redirectAttributes.addFlashAttribute("success", "Project created successfully.");
         } catch (Exception e) {
             log.error("Failed to create project: {}", e.getMessage());
@@ -274,8 +278,7 @@ public class WebController {
 
     @PostMapping("/profile/delete")
     public String deleteAccount(Authentication authentication,
-                                HttpServletRequest request,
-                                RedirectAttributes redirectAttributes) {
+                                HttpServletRequest request) {
         String username = authentication.getName();
         log.info("Delete account requested for user: {}", username);
         try {
@@ -297,17 +300,19 @@ public class WebController {
     @PostMapping("/projects/{id}/update")
     public String updateProject(@PathVariable Integer id,
                                 @ModelAttribute Projects project,
+                                @RequestParam(value = "memberIds", required = false) List<Integer> memberIds,
                                 RedirectAttributes redirectAttributes) {
-        log.info("Updating project id: {}", id);
+        log.info("Updating project id: {}, title: {}, memberIds: {}", id, project.getProjTitle(), memberIds);
         try {
             Projects existing = projectService.getProjectById(id).orElseThrow();
             existing.setProjTitle(project.getProjTitle());
             existing.setProjDesc(project.getProjDesc());
-            projectService.updateProject(id, existing);
+            List<Integer> ids = memberIds != null ? memberIds : List.of();
+            projectService.updateProject(id, existing, ids);
             redirectAttributes.addFlashAttribute("success", "Project updated successfully.");
         } catch (Exception e) {
-            log.error("Failed to update project: {}", e.getMessage());
-            redirectAttributes.addFlashAttribute("error", "Failed to update project.");
+            log.error("Failed to update project id: {}", id, e);
+            redirectAttributes.addFlashAttribute("error", "Failed to update project: " + e.getClass().getSimpleName());
         }
         return "redirect:/projects/" + id;
     }
