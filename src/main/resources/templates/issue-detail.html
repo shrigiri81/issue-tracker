@@ -5,316 +5,692 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${issue.issueTitle} + ' · Issue Tracker'">Issue · Issue Tracker</title>
     <meta name="description" th:content="'Issue: ' + ${issue.issueTitle}">
-    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <!-- CSRF token for JS fetch calls -->
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canvas: '#f8f7f4',
+                        panel: '#ffffff',
+                        borderSubtle: '#ebe8e2',
+                        borderMedium: '#dfdbd4',
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .issue-body {
-            font-size: 0.88rem;
-            color: var(--text);
-            line-height: 1.7;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .edit-form { display: none; }
-        .edit-form.visible { display: flex; flex-direction: column; gap: 14px; }
-
-        /* Delete confirmation modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-box {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 32px 28px;
-            max-width: 420px;
-            width: 90%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.4);
-            animation: modalIn 0.2s ease;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.94) translateY(8px); }
-            to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .modal-icon {
-            width: 48px; height: 48px;
-            border-radius: 50%;
-            background: rgba(239,68,68,0.15);
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 16px;
-            font-size: 1.4rem;
-        }
-        .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
-        .modal-desc  { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-        .btn-danger {
-            background: #ef4444;
-            color: #fff;
-            border: none;
-            padding: 8px 18px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.18s;
-        }
-        .btn-danger:hover { background: #dc2626; }
+        body { background-color: #f8f7f4; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
+        .badge-open        { background:#e6f4ea; color:#137333; border-color:#bbdfc8; }
+        .badge-closed      { background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; }
+        .badge-in_progress { background:#fef9c3; color:#854d0e; border-color:#fde68a; }
+        .badge-merged      { background:#f3e8ff; color:#7e22ce; border-color:#e9d5ff; }
+        .badge-high        { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+        .badge-medium      { background:#fef9c3; color:#854d0e; border-color:#fde68a; }
+        .badge-low         { background:#e6f4ea; color:#137333; border-color:#bbdfc8; }
+        .badge-critical    { background:#f3e8ff; color:#7e22ce; border-color:#e9d5ff; }
+        .edit-form-hidden  { display: none; }
+        .edit-form-visible { display: flex; flex-direction: column; gap: 14px; }
+        /* Comment edit area */
+        .comment-edit-area { display: none; flex-direction: column; gap: 8px; margin-top: 8px; }
+        .comment-edit-area.visible { display: flex; }
+        /* Toast */
+        .toast-container { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; gap:8px; z-index:2000; pointer-events:none; }
+        .toast { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:10px 16px; font-size:0.82rem; box-shadow:0 4px 20px rgba(0,0,0,0.1); animation:toastIn 0.2s ease; pointer-events:auto; max-width:300px; }
+        .toast-success { border-color:#bbdfc8; color:#137333; }
+        .toast-error   { border-color:#fca5a5; color:#991b1b; }
+        @keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+        /* Modal */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center; }
+        .modal-overlay.active { display:flex; }
+        /* Comment actions on hover */
+        .comment-actions { opacity: 0; transition: opacity 0.15s; }
+        .comment-card:hover .comment-actions { opacity: 1; }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex font-sans text-sm">
 
-<div class="app-layout">
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-icon">🐞</div>
-            <span>Issue Tracker</span>
+<!-- Sidebar -->
+<aside class="w-64 flex-shrink-0 bg-panel border-r border-borderSubtle flex flex-col justify-between h-screen sticky top-0">
+    <div class="flex flex-col">
+        <div class="h-16 px-6 flex items-center gap-3 border-b border-borderSubtle">
+            <div class="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-sm">🐞</div>
+            <span class="font-semibold text-neutral-800 text-base tracking-tight">Issue Tracker</span>
         </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section-label">Navigation</div>
-            <a th:href="@{/dashboard}" class="nav-link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                Dashboard
+        <nav class="p-3 space-y-1">
+            <a th:href="@{/dashboard}" class="flex items-center gap-3 px-3.5 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors">
+                <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+                <span class="font-normal text-[13.5px]">Dashboard</span>
             </a>
-            <a th:href="@{/projects/{id}(id=${projectId})}" class="nav-link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M16 3v4M8 3v4"/></svg>
-                <span class="truncate" th:text="${projectName}">Project</span>
+            <a th:href="@{/projects/{id}(id=${projectId})}" class="flex items-center gap-3 px-3.5 py-2 rounded-lg bg-neutral-100/80 text-neutral-900 font-medium transition-colors">
+                <svg class="w-4 h-4 text-neutral-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="text-[13.5px] truncate" th:text="${projectName}">Project</span>
             </a>
-            <a th:href="@{/profile}" class="nav-link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-                Profile
+            <a th:href="@{/profile}" class="flex items-center gap-3 px-3.5 py-2 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors">
+                <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="font-normal text-[13.5px]">Profile</span>
             </a>
         </nav>
-        <div class="sidebar-footer">
-            <form th:action="@{/logout}" method="post">
-                <button id="logout-btn" type="submit" class="btn btn-ghost w-full" style="justify-content:flex-start;gap:10px">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Logout
-                </button>
-            </form>
+    </div>
+    <div class="p-4 border-t border-borderSubtle">
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 text-neutral-600 hover:text-neutral-900 rounded-lg hover:bg-neutral-100 transition-colors">
+                <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="text-[13px] font-medium">Logout</span>
+            </button>
+        </form>
+    </div>
+</aside>
+
+<!-- Main content -->
+<div class="flex-1 flex flex-col min-w-0 bg-canvas">
+
+    <!-- Topbar -->
+    <header class="h-16 px-8 flex items-center justify-between border-b border-borderSubtle bg-panel/70 backdrop-blur-sm sticky top-0 z-20">
+        <h1 class="text-sm font-semibold text-neutral-900" th:text="'#' + ${issue.issueId} + ' · ' + ${issue.issueTitle}">Issue</h1>
+        <a th:href="@{/profile}" class="flex items-center gap-2 bg-neutral-100 hover:bg-neutral-200/70 cursor-pointer transition-colors px-2.5 py-1 rounded-full border border-borderSubtle" style="text-decoration:none">
+            <div class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center text-[10px]"
+                 th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
+            <span class="text-xs font-medium text-neutral-700" th:text="${currentUser}">username</span>
+        </a>
+    </header>
+
+    <!-- Page content -->
+    <main class="flex-1 px-8 py-6 max-w-7xl w-full mx-auto">
+
+        <!-- Flash Messages -->
+        <div th:if="${success}" class="mb-4 px-4 py-2.5 rounded-lg bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
+            ✓ <span th:text="${success}"></span>
         </div>
-    </aside>
+        <div th:if="${error}" class="mb-4 px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+            ✗ <span th:text="${error}"></span>
+        </div>
 
-    <!-- Main -->
-    <div class="main-wrap">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center gap-1.5 text-xs text-neutral-400 mb-5 font-normal">
+            <a th:href="@{/dashboard}" class="hover:text-neutral-600 transition-colors">Dashboard</a>
+            <span>/</span>
+            <a th:href="@{/projects/{id}(id=${projectId})}" th:text="${projectName}" class="hover:text-neutral-600 transition-colors">Project</a>
+            <span>/</span>
+            <span class="text-neutral-500 font-medium" th:text="'#' + ${issue.issueId}">#0</span>
+        </nav>
 
-        <!-- Topbar -->
-        <header class="topbar">
-            <div class="topbar-title" th:text="'#' + ${issue.issueId} + ' · ' + ${issue.issueTitle}">Issue</div>
-            <a th:href="@{/profile}" class="user-pill" style="text-decoration:none;cursor:pointer">
-                <div class="user-avatar" th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
-                <span th:text="${currentUser}">username</span>
-            </a>
-        </header>
+        <!-- Main grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-        <main class="page-content">
+            <!-- Left column: Issue + Comments -->
+            <div class="lg:col-span-8 space-y-6">
 
-            <!-- Flash Messages -->
-            <div th:if="${success}" class="alert alert-success mb-4" data-auto-dismiss>
-                ✓ <span th:text="${success}"></span>
-            </div>
-            <div th:if="${error}" class="alert alert-error mb-4" data-auto-dismiss>
-                ✗ <span th:text="${error}"></span>
-            </div>
-
-            <!-- Breadcrumb -->
-            <nav class="breadcrumb">
-                <a th:href="@{/dashboard}">Dashboard</a>
-                <span class="breadcrumb-sep">/</span>
-                <a th:href="@{/projects/{id}(id=${projectId})}" th:text="${projectName}">Project</a>
-                <span class="breadcrumb-sep">/</span>
-                <span th:text="'#' + ${issue.issueId}">Issue</span>
-            </nav>
-
-            <!-- Two-column layout -->
-            <div class="detail-layout">
-
-                <!-- Left: Issue Content -->
-                <div style="display:flex;flex-direction:column;gap:16px">
-
-                    <!-- Issue Header Card -->
-                    <div class="card">
-                        <div class="card-header">
-                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                                <span class="badge"
-                                      th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
-                                      th:text="${issue.status ?: 'OPEN'}">OPEN</span>
-                                <h1 style="font-size:1.05rem;font-weight:600;letter-spacing:-0.01em" th:text="${issue.issueTitle}">Issue Title</h1>
-                            </div>
-                            <div style="display:flex;gap:8px">
-                                <button id="edit-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleEdit()">Edit</button>
-                                <button id="delete-issue-btn" class="btn btn-sm btn-danger" onclick="openDeleteModal()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-
-                            <!-- View Mode -->
-                            <div id="view-mode">
-                                <p class="issue-body" th:text="${issue.issueDesc ?: 'No description provided.'}">Description</p>
-                            </div>
-
-                            <!-- Edit Form -->
-                            <form id="edit-form" class="edit-form"
-                                  th:action="@{/issues/{id}/update(id=${issue.issueId})}"
-                                  method="post">
-                                <div class="form-group">
-                                    <label class="form-label" for="edit-title">Title *</label>
-                                    <input id="edit-title" name="issueTitle" type="text" class="form-control"
-                                           th:value="${issue.issueTitle}" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="edit-desc">Description</label>
-                                    <textarea id="edit-desc" name="issueDesc" class="form-control"
-                                              rows="6" th:text="${issue.issueDesc}"></textarea>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label class="form-label" for="edit-status">Status</label>
-                                        <select id="edit-status" name="status" class="form-control">
-                                            <option value="OPEN"        th:selected="${issue.status == 'OPEN'}">Open</option>
-                                            <option value="IN_PROGRESS" th:selected="${issue.status == 'IN_PROGRESS'}">In Progress</option>
-                                            <option value="CLOSED"      th:selected="${issue.status == 'CLOSED'}">Closed</option>
-                                            <option value="MERGED"      th:selected="${issue.status == 'MERGED'}">Merged</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label" for="edit-priority">Priority</label>
-                                        <select id="edit-priority" name="priority" class="form-control">
-                                            <option value="LOW"      th:selected="${issue.priority == 'LOW'}">Low</option>
-                                            <option value="MEDIUM"   th:selected="${issue.priority == 'MEDIUM'}">Medium</option>
-                                            <option value="HIGH"     th:selected="${issue.priority == 'HIGH'}">High</option>
-                                            <option value="CRITICAL" th:selected="${issue.priority == 'CRITICAL'}">Critical</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="edit-assignee">Assigned To</label>
-                                    <select id="edit-assignee" name="assignedTo" class="form-control">
-                                        <option value="">— Unassigned —</option>
-                                        <option th:each="u : ${projectMembers}"
-                                                th:value="${u.userId}"
-                                                th:selected="${u.userId == issue.assignedTo}"
-                                                th:text="${u.username}">User</option>
-                                    </select>
-                                </div>
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-secondary" onclick="toggleEdit()">Cancel</button>
-                                    <button id="save-issue-btn" type="submit" class="btn btn-primary">Save Changes</button>
-                                </div>
-                            </form>
-
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Right: Meta Panel -->
-                <div class="meta-panel">
-                    <div class="meta-item">
-                        <span class="meta-label">Project</span>
-                        <a class="meta-value" th:href="@{/projects/{id}(id=${projectId})}"
-                           style="color:var(--accent)" th:text="${projectName}">Project Name</a>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Status</span>
-                        <span class="meta-value">
-                            <span class="badge"
+                <!-- Issue card -->
+                <article class="bg-panel border border-borderSubtle rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-borderSubtle flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="px-2.5 py-0.5 rounded-md text-[11px] font-semibold tracking-wider uppercase border"
                                   th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
                                   th:text="${issue.status ?: 'OPEN'}">OPEN</span>
-                        </span>
+                            <h2 class="text-base font-semibold text-neutral-900" th:text="${issue.issueTitle}">Issue Title</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="edit-toggle-btn" type="button" onclick="toggleEdit()"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-borderMedium bg-panel hover:bg-neutral-50 text-neutral-700 transition">Edit</button>
+                            <button id="delete-issue-btn" type="button" onclick="openDeleteModal()"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Delete
+                            </button>
+                        </div>
                     </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Priority</span>
-                        <span class="meta-value">
-                            <span class="badge"
-                                  th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
-                                  th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
-                        </span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Reporter</span>
-                        <span class="meta-value" th:text="${createdByName}">Unknown</span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Assignee</span>
-                        <span class="meta-value" th:text="${assignedToName}">Unassigned</span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Created</span>
-                        <span class="meta-value"
-                              th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
-                    </div>
-                    <div class="meta-item">
-                        <span class="meta-label">Last Updated</span>
-                        <span class="meta-value"
-                              th:text="${issue.updatedAt != null ? #dates.format(issue.updatedAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
-                    </div>
-                    <div class="meta-item">
-                        <a th:href="@{/projects/{id}(id=${projectId})}" class="btn btn-secondary btn-sm w-full"
-                           style="justify-content:center">← Back to Project</a>
-                    </div>
-                </div>
 
+                    <div class="px-6 py-5">
+                        <!-- View mode -->
+                        <div id="view-mode" class="text-neutral-700 text-[13.5px] leading-relaxed whitespace-pre-wrap break-words"
+                             th:text="${issue.issueDesc ?: 'No description provided.'}">Description</div>
+
+                        <!-- Edit form -->
+                        <form id="edit-form" class="edit-form-hidden"
+                              th:action="@{/issues/{id}/update(id=${issue.issueId})}" method="post">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-medium text-neutral-500" for="edit-title">Title *</label>
+                                <input id="edit-title" name="issueTitle" type="text" th:value="${issue.issueTitle}" required
+                                       class="w-full border border-borderMedium rounded-lg px-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-400 bg-white">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-medium text-neutral-500" for="edit-desc">Description</label>
+                                <textarea id="edit-desc" name="issueDesc" rows="6" th:text="${issue.issueDesc}"
+                                          class="w-full border border-borderMedium rounded-lg px-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-400 bg-white resize-y"></textarea>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-xs font-medium text-neutral-500" for="edit-status">Status</label>
+                                    <select id="edit-status" name="status" class="w-full border border-borderMedium rounded-lg px-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-400 bg-white">
+                                        <option value="OPEN"        th:selected="${issue.status == 'OPEN'}">Open</option>
+                                        <option value="IN_PROGRESS" th:selected="${issue.status == 'IN_PROGRESS'}">In Progress</option>
+                                        <option value="CLOSED"      th:selected="${issue.status == 'CLOSED'}">Closed</option>
+                                        <option value="MERGED"      th:selected="${issue.status == 'MERGED'}">Merged</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-xs font-medium text-neutral-500" for="edit-priority">Priority</label>
+                                    <select id="edit-priority" name="priority" class="w-full border border-borderMedium rounded-lg px-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-400 bg-white">
+                                        <option value="LOW"      th:selected="${issue.priority == 'LOW'}">Low</option>
+                                        <option value="MEDIUM"   th:selected="${issue.priority == 'MEDIUM'}">Medium</option>
+                                        <option value="HIGH"     th:selected="${issue.priority == 'HIGH'}">High</option>
+                                        <option value="CRITICAL" th:selected="${issue.priority == 'CRITICAL'}">Critical</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-medium text-neutral-500" for="edit-assignee">Assigned To</label>
+                                <select id="edit-assignee" name="assignedTo" class="w-full border border-borderMedium rounded-lg px-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-400 bg-white">
+                                    <option value="">— Unassigned —</option>
+                                    <option th:each="u : ${projectMembers}" th:value="${u.userId}"
+                                            th:selected="${u.userId == issue.assignedTo}" th:text="${u.username}">User</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2 justify-end pt-1">
+                                <button type="button" onclick="toggleEdit()"
+                                        class="px-3 py-1.5 text-xs font-medium rounded-md border border-borderMedium bg-panel hover:bg-neutral-50 text-neutral-700 transition">Cancel</button>
+                                <button id="save-issue-btn" type="submit"
+                                        class="px-4 py-1.5 text-xs font-medium rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </article>
+
+                <!-- Activity & Discussion section -->
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between pt-1">
+                        <div class="flex items-center gap-2.5">
+                            <h3 class="text-sm font-semibold text-neutral-800">Activity &amp; Discussion</h3>
+                            <span id="comment-count-badge"
+                                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-200/80 text-neutral-700"
+                                  th:text="${issue.comments != null ? #lists.size(issue.comments) : 0} + ' comments'">0 comments</span>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div id="comments-empty-state" class="bg-panel border border-borderSubtle rounded-xl p-10 text-center shadow-sm"
+                         th:classappend="${issue.comments != null && !#lists.isEmpty(issue.comments)} ? 'hidden' : ''"
+                         th:style="${issue.comments == null || #lists.isEmpty(issue.comments)} ? '' : 'display:none'">
+                        <div class="text-2xl mb-2 opacity-40">💬</div>
+                        <p class="text-xs text-neutral-400">No comments yet. Be the first to comment!</p>
+                    </div>
+
+                    <!-- Comment stream (ascending: oldest first) -->
+                    <div class="space-y-3" id="comment-thread">
+                        <!-- Server-rendered comments -->
+                        <div th:each="comment : ${issue.comments}"
+                             th:id="'comment-' + ${comment.commentId}"
+                             class="comment-card bg-panel border border-borderSubtle rounded-xl p-5 shadow-sm overflow-hidden"
+                             th:attr="data-author=${comment.commentAuthor != null ? comment.commentAuthor.username : 'unknown'},
+                                      data-comment-id=${comment.commentId}">
+                            <div class="flex items-start gap-3">
+                                <!-- Avatar -->
+                                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-xs flex-shrink-0"
+                                     th:text="${comment.commentAuthor != null ? #strings.substring(comment.commentAuthor.username, 0, 1).toUpperCase() : '?'}">?</div>
+                                <!-- Body -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium text-neutral-900 text-xs"
+                                                  th:text="${comment.commentAuthor != null ? comment.commentAuthor.username : 'Unknown'}">Author</span>
+                                            <span class="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 font-medium"
+                                                  th:if="${comment.commentAuthor != null && comment.commentAuthor.username == currentUser}">you</span>
+                                            <span class="text-xs text-neutral-400"
+                                                  th:text="${comment.createdAt != null ? '· ' + #dates.format(comment.createdAt, 'dd MMM yyyy, HH:mm') : ''}">· time</span>
+                                        </div>
+                                        <!-- Actions for own comments -->
+                                        <div class="comment-actions flex items-center gap-3 text-xs text-neutral-400"
+                                             th:if="${comment.commentAuthor != null && comment.commentAuthor.username == currentUser}">
+                                            <button class="hover:text-neutral-700 transition-colors"
+                                                    th:onclick="'startEditComment(' + ${comment.commentId} + ')'">Edit</button>
+                                            <button class="hover:text-red-600 transition-colors"
+                                                    th:onclick="'openDeleteCommentModal(' + ${comment.commentId} + ')'">Delete</button>
+                                        </div>
+                                    </div>
+                                    <!-- Comment text -->
+                                    <p class="comment-text text-neutral-700 text-xs leading-relaxed whitespace-pre-wrap break-words"
+                                       th:text="${comment.commentData}">Comment text</p>
+                                    <!-- Inline edit area -->
+                                    <div class="comment-edit-area" th:id="'edit-area-' + ${comment.commentId}">
+                                        <div class="border border-borderMedium rounded-lg overflow-hidden focus-within:border-neutral-400 focus-within:ring-1 focus-within:ring-neutral-400 transition">
+                                            <textarea class="w-full border-0 focus:ring-0 text-xs p-3 text-neutral-800 placeholder-neutral-400 resize-y bg-white"
+                                                      th:id="'edit-textarea-' + ${comment.commentId}"
+                                                      rows="3" th:text="${comment.commentData}"></textarea>
+                                        </div>
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button class="px-3 py-1.5 text-xs font-medium rounded-md border border-borderMedium bg-panel hover:bg-neutral-50 text-neutral-700 transition"
+                                                    th:onclick="'cancelEditComment(' + ${comment.commentId} + ')'">Cancel</button>
+                                            <button class="px-3 py-1.5 text-xs font-medium rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition"
+                                                    th:onclick="'saveEditComment(' + ${comment.commentId} + ')'">Save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- New comment composer -->
+                    <div class="bg-panel border border-borderSubtle rounded-xl p-4 shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center text-xs flex-shrink-0"
+                                 th:text="${#strings.length(currentUser) > 0 ? #strings.substring(currentUser, 0, 1).toUpperCase() : 'U'}">U</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="border border-borderMedium rounded-lg overflow-hidden focus-within:border-neutral-500 focus-within:ring-1 focus-within:ring-neutral-500 transition">
+                                    <!-- Toolbar -->
+                                    <div class="bg-neutral-50 border-b border-borderSubtle px-3 py-1.5 flex items-center justify-between text-neutral-500">
+                                        <div class="flex items-center gap-3 text-xs">
+                                            <button type="button" onclick="formatInput('**', '**')" class="font-bold hover:text-neutral-900 transition-colors" title="Bold">B</button>
+                                            <button type="button" onclick="formatInput('*', '*')" class="italic hover:text-neutral-900 transition-colors" title="Italic">I</button>
+                                            <button type="button" onclick="formatInput('`', '`')" class="font-mono text-[11px] hover:text-neutral-900 transition-colors" title="Code">&lt;/&gt;</button>
+                                            <span class="w-px h-3 bg-neutral-300"></span>
+                                            <button type="button" onclick="formatInput('> ', '')" class="hover:text-neutral-900 transition-colors" title="Quote">"</button>
+                                        </div>
+                                        <span class="text-[11px] text-neutral-400">Ctrl+Enter to submit</span>
+                                    </div>
+                                    <textarea id="new-comment-input" rows="3"
+                                              class="w-full border-0 focus:ring-0 text-xs p-3 text-neutral-800 placeholder-neutral-400 resize-y bg-white"
+                                              placeholder="Leave a comment…"></textarea>
+                                </div>
+                                <div class="mt-2.5 flex items-center justify-end">
+                                    <button id="new-comment-submit" type="button" onclick="submitComment()" disabled
+                                            class="px-4 py-1.5 text-xs font-medium rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition disabled:opacity-40 disabled:cursor-not-allowed">
+                                        Add comment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
             </div>
 
-        </main>
-    </div>
+            <!-- Right: Metadata sidebar -->
+            <aside class="lg:col-span-4">
+                <div class="bg-panel border border-borderSubtle rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Project</span>
+                        <a class="text-xs font-medium text-blue-600 hover:underline"
+                           th:href="@{/projects/{id}(id=${projectId})}" th:text="${projectName}">Project</a>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Status</span>
+                        <span class="inline-block px-2 py-0.5 rounded text-[10.5px] font-semibold tracking-wider border"
+                              th:classappend="'badge-' + ${#strings.toLowerCase(issue.status ?: 'open')}"
+                              th:text="${issue.status ?: 'OPEN'}">OPEN</span>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Priority</span>
+                        <span class="inline-block px-2 py-0.5 rounded text-[10.5px] font-semibold tracking-wider border"
+                              th:classappend="'badge-' + ${#strings.toLowerCase(issue.priority ?: 'medium')}"
+                              th:text="${issue.priority ?: 'MEDIUM'}">MEDIUM</span>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Reporter</span>
+                        <span class="text-xs font-semibold text-neutral-800" th:text="${createdByName}">Unknown</span>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Assignee</span>
+                        <span class="text-xs font-semibold text-neutral-800" th:text="${assignedToName}">Unassigned</span>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Created</span>
+                        <span class="text-xs text-neutral-800 font-medium"
+                              th:text="${issue.createdAt != null ? #dates.format(issue.createdAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                    </div>
+                    <div class="px-5 py-3.5 border-b border-borderSubtle">
+                        <span class="block text-[11px] text-neutral-400 font-medium uppercase tracking-wider mb-1">Last Updated</span>
+                        <span class="text-xs text-neutral-800 font-medium"
+                              th:text="${issue.updatedAt != null ? #dates.format(issue.updatedAt, 'dd MMM yyyy HH:mm') : '—'}">—</span>
+                    </div>
+                    <div class="p-4 bg-neutral-50/40">
+                        <a th:href="@{/projects/{id}(id=${projectId})}"
+                           class="w-full inline-flex items-center justify-center gap-1 px-4 py-2 text-xs font-medium text-neutral-700 bg-panel border border-borderMedium rounded-lg hover:bg-neutral-50 transition" style="text-decoration:none">
+                            ← Back to Project
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+    </main>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div id="delete-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="modal-box">
-        <div class="modal-icon">🗑️</div>
-        <div class="modal-title" id="modal-title">Delete Issue?</div>
-        <div class="modal-desc">
-            This will permanently delete issue <strong th:text="'#' + ${issue.issueId} + ' — ' + ${issue.issueTitle}">this issue</strong>.
+<!-- Delete Issue Modal -->
+<div id="delete-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-xl border border-neutral-200 p-8 max-w-md w-full mx-4 shadow-2xl" style="animation: toastIn 0.2s ease">
+        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-xl mb-4">🗑️</div>
+        <div class="text-base font-bold text-neutral-900 mb-2">Delete Issue?</div>
+        <div class="text-sm text-neutral-500 mb-6 leading-relaxed">
+            This will permanently delete issue
+            <strong class="text-neutral-800" th:text="'#' + ${issue.issueId} + ' — ' + ${issue.issueTitle}">this issue</strong>.
             This action cannot be undone.
         </div>
-        <div class="modal-actions">
-            <button class="btn btn-secondary btn-sm" onclick="closeDeleteModal()">Cancel</button>
+        <div class="flex gap-2 justify-end">
+            <button onclick="closeDeleteModal()"
+                    class="px-4 py-2 text-xs font-medium rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition">Cancel</button>
             <form id="delete-form" th:action="@{/issues/{id}/delete(id=${issue.issueId})}" method="post" style="margin:0">
-                <button id="confirm-delete-btn" type="submit" class="btn-danger">Yes, Delete</button>
+                <button id="confirm-delete-btn" type="submit"
+                        class="px-4 py-2 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Yes, Delete</button>
             </form>
         </div>
     </div>
 </div>
 
-<script th:src="@{/js/app.js}"></script>
-<script>
+<!-- Delete Comment Modal -->
+<div id="delete-comment-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="del-comment-title">
+    <div class="bg-white rounded-xl border border-neutral-200 p-8 max-w-md w-full mx-4 shadow-2xl" style="animation: toastIn 0.2s ease">
+        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-xl mb-4">🗑️</div>
+        <div id="del-comment-title" class="text-base font-bold text-neutral-900 mb-2">Delete Comment?</div>
+        <div class="text-sm text-neutral-500 mb-6 leading-relaxed">
+            Are you sure you want to delete this comment? This action cannot be undone.
+        </div>
+        <div class="flex gap-2 justify-end">
+            <button type="button" onclick="closeDeleteCommentModal()"
+                    class="px-4 py-2 text-xs font-medium rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition">Cancel</button>
+            <button id="confirm-delete-comment-btn" type="button" onclick="executeDeleteComment()"
+                    class="px-4 py-2 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition">Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
+<script th:inline="javascript">
+    var ISSUE_ID     = /*[[${issue.issueId}]]*/ 0;
+    var CURRENT_USER = /*[[${currentUser}]]*/  '';
+
+    function csrfHeaders(extra) {
+        var token  = document.querySelector('meta[name="_csrf"]');
+        var header = document.querySelector('meta[name="_csrf_header"]');
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+        if (token && header) headers[header.content] = token.content;
+        return headers;
+    }
+
+    /* Issue edit toggle */
     function toggleEdit() {
-        const editForm = document.getElementById('edit-form');
-        const viewMode = document.getElementById('view-mode');
-        const btn = document.getElementById('edit-toggle-btn');
-        const isEditing = editForm.classList.toggle('visible');
+        var editForm = document.getElementById('edit-form');
+        var viewMode = document.getElementById('view-mode');
+        var btn      = document.getElementById('edit-toggle-btn');
+        var isEditing = editForm.classList.toggle('edit-form-visible');
+        editForm.classList.toggle('edit-form-hidden', !isEditing);
         viewMode.style.display = isEditing ? 'none' : '';
         btn.textContent = isEditing ? 'Cancel' : 'Edit';
     }
 
-    function openDeleteModal() {
-        document.getElementById('delete-modal').classList.add('active');
+    /* Delete issue modal */
+    function openDeleteModal()  { document.getElementById('delete-modal').classList.add('active'); }
+    function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
+    document.getElementById('delete-modal').addEventListener('click', function(e) { if (e.target === this) closeDeleteModal(); });
+
+    /* Delete comment modal */
+    var commentIdToDelete = null;
+
+    function openDeleteCommentModal(commentId) {
+        commentIdToDelete = commentId;
+        var modal = document.getElementById('delete-comment-modal');
+        if (modal) modal.classList.add('active');
     }
 
-    function closeDeleteModal() {
-        document.getElementById('delete-modal').classList.remove('active');
+    function closeDeleteCommentModal() {
+        commentIdToDelete = null;
+        var modal = document.getElementById('delete-comment-modal');
+        if (modal) modal.classList.remove('active');
+        var btn = document.getElementById('confirm-delete-comment-btn');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Yes, Delete';
+        }
     }
 
-    // Close modal on overlay click or Escape key
-    document.getElementById('delete-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeDeleteModal();
-    });
+    function deleteComment(commentId) {
+        openDeleteCommentModal(commentId);
+    }
+
+    var commentModalEl = document.getElementById('delete-comment-modal');
+    if (commentModalEl) {
+        commentModalEl.addEventListener('click', function(e) {
+            if (e.target === this) closeDeleteCommentModal();
+        });
+    }
+
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeDeleteModal();
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+            closeDeleteCommentModal();
+        }
+    });
+
+    /* Toast */
+    function showToast(msg, type) {
+        type = type || 'success';
+        var c = document.getElementById('toast-container');
+        var t = document.createElement('div');
+        t.className = 'toast toast-' + type;
+        t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+        c.appendChild(t);
+        setTimeout(function() { t.style.transition = 'opacity 0.3s'; t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 3500);
+    }
+
+    /* Comment count badge & empty state */
+    function updateCommentCount() {
+        var count = document.querySelectorAll('.comment-card').length;
+        document.getElementById('comment-count-badge').textContent = count + (count === 1 ? ' comment' : ' comments');
+        var empty = document.getElementById('comments-empty-state');
+        if (empty) {
+            empty.classList.toggle('hidden', count > 0);
+            empty.style.display = count === 0 ? '' : 'none';
+        }
+    }
+
+    /* Sort comments in ascending order (lowest ID / oldest first) */
+    function sortCommentsAscending() {
+        var thread = document.getElementById('comment-thread');
+        if (!thread) return;
+        var cards = Array.from(thread.querySelectorAll('.comment-card'));
+        cards.sort(function(a, b) {
+            var idA = parseInt(a.getAttribute('data-comment-id') || '0', 10);
+            var idB = parseInt(b.getAttribute('data-comment-id') || '0', 10);
+            return idA - idB;
+        });
+        cards.forEach(function(card) {
+            thread.appendChild(card);
+        });
+    }
+
+    /* Markdown helper for composer */
+    function formatInput(prefix, suffix) {
+        var ta = document.getElementById('new-comment-input');
+        if (!ta) return;
+        var start = ta.selectionStart;
+        var end = ta.selectionEnd;
+        var sel = ta.value.substring(start, end);
+        ta.value = ta.value.substring(0, start) + prefix + sel + suffix + ta.value.substring(end);
+        ta.focus();
+        ta.selectionStart = start + prefix.length;
+        ta.selectionEnd = end + prefix.length;
+        commentSubmit.disabled = ta.value.trim().length === 0;
+    }
+
+    /* New comment input */
+    var commentInput  = document.getElementById('new-comment-input');
+    var commentSubmit = document.getElementById('new-comment-submit');
+
+    commentInput.addEventListener('input', function() {
+        commentSubmit.disabled = this.value.trim().length === 0;
+    });
+    commentInput.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!commentSubmit.disabled) submitComment(); }
+    });
+
+    /* Submit new comment */
+    function submitComment() {
+        var text = commentInput.value.trim();
+        if (!text) return;
+        commentSubmit.disabled = true;
+        commentSubmit.textContent = 'Posting\u2026';
+        fetch('/issues/' + ISSUE_ID + '/comments', {
+            method: 'POST',
+            headers: csrfHeaders(),
+            body: JSON.stringify({ commentData: text })
+        })
+        .then(function(res) { if (!res.ok) throw new Error('Failed'); return res.json(); })
+        .then(function(saved) {
+            appendCommentToThread(saved, text);
+            commentInput.value = '';
+            updateCommentCount();
+            showToast('Comment posted!');
+        })
+        .catch(function(err) { showToast('Could not post comment.', 'error'); console.error(err); })
+        .finally(function() { commentSubmit.disabled = false; commentSubmit.textContent = 'Add comment'; });
+    }
+
+    /* Append new comment to DOM (prepends to top for descending order) */
+    function appendCommentToThread(comment, text) {
+        var thread    = document.getElementById('comment-thread');
+        var initial   = CURRENT_USER.charAt(0).toUpperCase();
+        var commentId = comment.commentId;
+        var now = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})
+                  + ', ' + new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+
+        var el = document.createElement('div');
+        el.className = 'comment-card bg-panel border border-borderSubtle rounded-xl p-5 shadow-sm overflow-hidden';
+        el.id = 'comment-' + commentId;
+        el.setAttribute('data-author', CURRENT_USER);
+        el.setAttribute('data-comment-id', commentId);
+        el.innerHTML =
+            '<div class="flex items-start gap-3">' +
+                '<div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">' + escapeHtml(initial) + '</div>' +
+                '<div class="flex-1 min-w-0">' +
+                    '<div class="flex items-center justify-between mb-1.5">' +
+                        '<div class="flex items-center gap-2">' +
+                            '<span class="font-medium text-neutral-900 text-xs">' + escapeHtml(CURRENT_USER) + '</span>' +
+                            '<span class="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 font-medium">you</span>' +
+                            '<span class="text-xs text-neutral-400">\u00b7 ' + now + '</span>' +
+                        '</div>' +
+                        '<div class="comment-actions flex items-center gap-3 text-xs text-neutral-400">' +
+                            '<button class="hover:text-neutral-700 transition-colors" onclick="startEditComment(' + commentId + ')">Edit</button>' +
+                            '<button class="hover:text-red-600 transition-colors" onclick="openDeleteCommentModal(' + commentId + ')">Delete</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<p class="comment-text text-neutral-700 text-xs leading-relaxed whitespace-pre-wrap break-words">' + escapeHtml(text) + '</p>' +
+                    '<div class="comment-edit-area" id="edit-area-' + commentId + '">' +
+                        '<div class="border border-borderMedium rounded-lg overflow-hidden focus-within:border-neutral-400 focus-within:ring-1 focus-within:ring-neutral-400 transition">' +
+                            '<textarea class="w-full border-0 focus:ring-0 text-xs p-3 text-neutral-800 resize-y bg-white" id="edit-textarea-' + commentId + '" rows="3">' + escapeHtml(text) + '</textarea>' +
+                        '</div>' +
+                        '<div class="flex items-center justify-end gap-2">' +
+                            '<button class="px-3 py-1.5 text-xs font-medium rounded-md border border-borderMedium bg-panel hover:bg-neutral-50 text-neutral-700 transition" onclick="cancelEditComment(' + commentId + ')">Cancel</button>' +
+                            '<button class="px-3 py-1.5 text-xs font-medium rounded-md bg-neutral-900 hover:bg-neutral-800 text-white transition" onclick="saveEditComment(' + commentId + ')">Save</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        thread.appendChild(el);
+    }
+
+    /* Execute delete comment via custom modal */
+    function executeDeleteComment() {
+        if (!commentIdToDelete) return;
+        var commentId = commentIdToDelete;
+        var el = document.getElementById('comment-' + commentId);
+        var btn = document.getElementById('confirm-delete-comment-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Deleting\u2026';
+        }
+
+        fetch('/issues/' + ISSUE_ID + '/comments/' + commentId, {
+            method: 'DELETE',
+            headers: csrfHeaders()
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('Delete failed');
+            closeDeleteCommentModal();
+            if (el) {
+                el.style.transition = 'all 0.25s ease';
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.96)';
+                setTimeout(function() {
+                    el.remove();
+                    updateCommentCount();
+                }, 250);
+            } else {
+                updateCommentCount();
+            }
+            showToast('Comment deleted.');
+        })
+        .catch(function(err) {
+            showToast('Could not delete comment.', 'error');
+            console.error(err);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Yes, Delete';
+            }
+        });
+    }
+
+    /* Edit comment */
+    function startEditComment(commentId) {
+        var textEl   = document.querySelector('#comment-' + commentId + ' .comment-text');
+        var editArea = document.getElementById('edit-area-' + commentId);
+        var textarea = document.getElementById('edit-textarea-' + commentId);
+        if (!editArea || !textEl) return;
+        textarea.value = textEl.textContent;
+        textEl.style.display = 'none';
+        editArea.classList.add('visible');
+        textarea.focus();
+    }
+
+    function cancelEditComment(commentId) {
+        var textEl   = document.querySelector('#comment-' + commentId + ' .comment-text');
+        var editArea = document.getElementById('edit-area-' + commentId);
+        if (!editArea || !textEl) return;
+        textEl.style.display = '';
+        editArea.classList.remove('visible');
+    }
+
+    function saveEditComment(commentId) {
+        var textarea = document.getElementById('edit-textarea-' + commentId);
+        var textEl   = document.querySelector('#comment-' + commentId + ' .comment-text');
+        var editArea = document.getElementById('edit-area-' + commentId);
+        if (!textarea || !textEl) return;
+        var newText = textarea.value.trim();
+        if (!newText) { showToast('Comment cannot be empty.', 'error'); return; }
+        fetch('/issues/' + ISSUE_ID + '/comments/' + commentId, {
+            method: 'PATCH', headers: csrfHeaders(), body: JSON.stringify(newText)
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('Update failed');
+            textEl.textContent = newText;
+            textEl.style.display = '';
+            editArea.classList.remove('visible');
+            showToast('Comment updated.');
+        })
+        .catch(function(err) { showToast('Could not update comment.', 'error'); console.error(err); });
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    /* Auto-init */
+    sortCommentsAscending();
+    updateCommentCount();
+
+    /* Auto-dismiss server-rendered flash alerts */
+    document.querySelectorAll('[data-auto-dismiss]').forEach(function(el) {
+        setTimeout(function() { el.style.transition='opacity 0.4s'; el.style.opacity='0'; setTimeout(function(){el.remove();},400); }, 4000);
     });
 </script>
 </body>

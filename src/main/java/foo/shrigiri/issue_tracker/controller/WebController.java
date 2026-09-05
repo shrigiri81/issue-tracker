@@ -1,19 +1,23 @@
 package foo.shrigiri.issue_tracker.controller;
 
+import foo.shrigiri.issue_tracker.model.Comments;
 import foo.shrigiri.issue_tracker.model.Issues;
 import foo.shrigiri.issue_tracker.model.Projects;
 import foo.shrigiri.issue_tracker.model.Users;
+import foo.shrigiri.issue_tracker.service.CommentService;
 import foo.shrigiri.issue_tracker.service.IssuesService;
 import foo.shrigiri.issue_tracker.service.ProjectService;
 import foo.shrigiri.issue_tracker.service.UsersService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,13 +30,16 @@ public class WebController {
     private final ProjectService projectService;
     private final IssuesService issuesService;
     private final UsersService usersService;
+    private final CommentService commentService;
 
     public WebController(ProjectService projectService,
                          IssuesService issuesService,
-                         UsersService usersService) {
+                         UsersService usersService,
+                         CommentService commentService) {
         this.projectService = projectService;
         this.issuesService = issuesService;
         this.usersService = usersService;
+        this.commentService = commentService;
         log.info("WebController initialized");
     }
 
@@ -259,6 +266,50 @@ public class WebController {
         }
     }
 
+    // ─── Comments (session-authenticated JSON endpoints) ──────────────────────────
+
+    @PostMapping("/issues/{issueId}/comments")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> addComment(@PathVariable Integer issueId,
+                                                          @RequestBody Comments comment,
+                                                          Authentication authentication) {
+        log.info("Adding comment to issue {}", issueId);
+        Issues issue = issuesService.getIssueById(issueId).orElseThrow();
+        Users author = usersService.findByUsername(authentication.getName());
+        comment.setIssue(issue);
+        comment.setCommentAuthor(author);
+        Comments saved = commentService.addComment(comment);
+        Map<String, Object> response = new HashMap<>();
+        response.put("commentId",   saved.getCommentId());
+        response.put("commentData", saved.getCommentData());
+        response.put("authorUsername", author != null ? author.getUsername() : "");
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/issues/{issueId}/comments/{commentId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateComment(@PathVariable Integer issueId,
+                                                             @PathVariable Integer commentId,
+                                                             @RequestBody String newText,
+                                                             Authentication authentication) {
+        log.info("Updating comment {} on issue {}", commentId, issueId);
+        Comments updated = commentService.updateCommentContent(commentId, newText);
+        Map<String, Object> response = new HashMap<>();
+        response.put("commentId",   updated.getCommentId());
+        response.put("commentData", updated.getCommentData());
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/issues/{issueId}/comments/{commentId}")
+    @ResponseBody
+    public ResponseEntity<String> deleteComment(@PathVariable Integer issueId,
+                                                @PathVariable Integer commentId,
+                                                Authentication authentication) {
+        log.info("Deleting comment {} on issue {}", commentId, issueId);
+        String result = commentService.deleteComment(commentId);
+        return ResponseEntity.ok(result);
+    }
+
     // ─── Profile ─────────────────────────────────────────────────────────────────
 
     @GetMapping("/profile")
@@ -272,9 +323,43 @@ public class WebController {
     }
 
     @PostMapping("/profile/change-password")
-    public String changePassword(RedirectAttributes redirectAttributes) {
-        // Stub — backend endpoint not yet implemented
-        redirectAttributes.addFlashAttribute("info", "Password change is coming soon.");
+    public String changePassword(@RequestParam("currentPassword") String currentPassword,
+                                 @RequestParam("newPassword") String newPassword,
+                                 @RequestParam("confirmPassword") String confirmPassword,
+                                 Authentication authentication,
+                                 RedirectAttributes redirectAttributes) {
+        String username = authentication.getName();
+        log.info("Change password requested for user: {}", username);
+
+        if (newPassword == null || newPassword.isBlank()) {
+            redirectAttributes.addFlashAttribute("error", "New password cannot be empty.");
+            return "redirect:/profile";
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            redirectAttributes.addFlashAttribute("error", "New passwords do not match.");
+            return "redirect:/profile";
+        }
+        if (newPassword.length() < 6) {
+            redirectAttributes.addFlashAttribute("error", "Password must be at least 6 characters.");
+            return "redirect:/profile";
+        }
+
+        try {
+            Users user = usersService.findByUsername(username);
+            if (user == null) {
+                redirectAttributes.addFlashAttribute("error", "User not found.");
+                return "redirect:/profile";
+            }
+            String result = usersService.updatePassword(user.getUserId(), currentPassword, newPassword);
+            if (result.equals("Password updated successfully")) {
+                redirectAttributes.addFlashAttribute("success", "Password changed successfully!");
+            } else {
+                redirectAttributes.addFlashAttribute("error", result);
+            }
+        } catch (Exception e) {
+            log.error("Failed to change password for {}: {}", username, e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Failed to change password: " + e.getMessage());
+        }
         return "redirect:/profile";
     }
 

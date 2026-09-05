@@ -129,31 +129,68 @@
                     </div>
                 </div>
 
-                <!-- Change Password (stub) -->
+                <!-- Change Password -->
                 <div class="card">
                     <div class="card-header">
-                        <h2>Change Password</h2>
-                        <span class="badge-count" style="font-size:0.68rem">Coming soon</span>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-dim)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <h2>Change Password</h2>
+                        </div>
                     </div>
                     <div class="card-body">
-                        <p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:16px">
-                            Password change is not yet available via the web UI.
-                        </p>
-                        <div style="opacity:0.45;pointer-events:none;display:flex;flex-direction:column;gap:14px">
+                        <form id="change-password-form" th:action="@{/profile/change-password}" method="post"
+                              style="display:flex;flex-direction:column;gap:16px">
+
+                            <div class="form-group">
+                                <label class="form-label" for="current-password">Current Password</label>
+                                <div style="position:relative">
+                                    <input id="current-password" name="currentPassword" type="password"
+                                           class="form-control" placeholder="Enter current password"
+                                           autocomplete="current-password" required
+                                           style="padding-right:38px">
+                                    <button type="button" class="pwd-toggle-btn" onclick="togglePwd('current-password', this)"
+                                            title="Show/hide password"
+                                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;display:flex;align-items:center">👁</button>
+                                </div>
+                            </div>
+
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label" for="current-password">Current Password</label>
-                                    <input id="current-password" type="password" class="form-control" placeholder="••••••••" disabled>
+                                    <label class="form-label" for="new-password">New Password</label>
+                                    <div style="position:relative">
+                                        <input id="new-password" name="newPassword" type="password"
+                                               class="form-control" placeholder="Min. 6 characters"
+                                               autocomplete="new-password" required minlength="6"
+                                               oninput="checkPasswords()" style="padding-right:38px">
+                                        <button type="button" class="pwd-toggle-btn" onclick="togglePwd('new-password', this)"
+                                                title="Show/hide password"
+                                                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;display:flex;align-items:center">👁</button>
+                                    </div>
+                                    <!-- Strength bar -->
+                                    <div id="pwd-strength-bar" style="display:none;height:3px;border-radius:2px;margin-top:6px;transition:width 0.2s,background 0.2s;background:var(--border);position:relative;overflow:hidden">
+                                        <div id="pwd-strength-fill" style="height:100%;width:0;border-radius:2px;transition:width 0.25s ease,background 0.25s ease"></div>
+                                    </div>
+                                    <div id="pwd-strength-label" style="font-size:0.72rem;color:var(--text-dim);margin-top:3px;display:none"></div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label" for="new-password">New Password</label>
-                                    <input id="new-password" type="password" class="form-control" placeholder="••••••••" disabled>
+                                    <label class="form-label" for="confirm-password">Confirm New Password</label>
+                                    <div style="position:relative">
+                                        <input id="confirm-password" name="confirmPassword" type="password"
+                                               class="form-control" placeholder="Repeat new password"
+                                               autocomplete="new-password" required
+                                               oninput="checkPasswords()" style="padding-right:38px">
+                                        <button type="button" class="pwd-toggle-btn" onclick="togglePwd('confirm-password', this)"
+                                                title="Show/hide password"
+                                                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-dim);padding:0;display:flex;align-items:center">👁</button>
+                                    </div>
+                                    <div id="pwd-match-label" style="font-size:0.72rem;margin-top:3px;display:none"></div>
                                 </div>
                             </div>
+
                             <div class="form-actions">
-                                <button id="change-password-btn" type="button" class="btn btn-primary" disabled>Update Password</button>
+                                <button id="change-password-btn" type="submit" class="btn btn-primary">Update Password</button>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
 
@@ -236,6 +273,85 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeDeleteAccountModal();
     });
+
+    /* ── Password show/hide toggle ── */
+    function togglePwd(inputId, btn) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        var isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        btn.style.opacity = isHidden ? '1' : '0.45';
+    }
+
+    /* ── Password strength + match ── */
+    function checkPasswords() {
+        var newPwd     = document.getElementById('new-password');
+        var confirmPwd = document.getElementById('confirm-password');
+        var strengthBar   = document.getElementById('pwd-strength-bar');
+        var strengthFill  = document.getElementById('pwd-strength-fill');
+        var strengthLabel = document.getElementById('pwd-strength-label');
+        var matchLabel    = document.getElementById('pwd-match-label');
+
+        if (!newPwd) return;
+        var pwd = newPwd.value;
+
+        /* Strength */
+        if (pwd.length === 0) {
+            strengthBar.style.display = 'none';
+            strengthLabel.style.display = 'none';
+        } else {
+            var score = 0;
+            if (pwd.length >= 6)  score++;
+            if (pwd.length >= 10) score++;
+            if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+            if (/[0-9]/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+            var levels = [
+                { label: 'Very weak', color: '#ef4444', width: '20%' },
+                { label: 'Weak',      color: '#f97316', width: '40%' },
+                { label: 'Fair',      color: '#eab308', width: '60%' },
+                { label: 'Strong',    color: '#22c55e', width: '80%' },
+                { label: 'Very strong', color: '#10b981', width: '100%' }
+            ];
+            var lvl = levels[Math.min(score, 4)];
+            strengthBar.style.display = '';
+            strengthLabel.style.display = '';
+            strengthFill.style.width = lvl.width;
+            strengthFill.style.background = lvl.color;
+            strengthLabel.textContent = lvl.label;
+            strengthLabel.style.color = lvl.color;
+        }
+
+        /* Match */
+        if (confirmPwd && confirmPwd.value.length > 0) {
+            matchLabel.style.display = '';
+            if (newPwd.value === confirmPwd.value) {
+                matchLabel.textContent = '✓ Passwords match';
+                matchLabel.style.color = 'var(--success)';
+            } else {
+                matchLabel.textContent = '✗ Passwords do not match';
+                matchLabel.style.color = 'var(--danger)';
+            }
+        } else if (matchLabel) {
+            matchLabel.style.display = 'none';
+        }
+    }
+
+    /* ── Client-side form validation ── */
+    var cpForm = document.getElementById('change-password-form');
+    if (cpForm) {
+        cpForm.addEventListener('submit', function(e) {
+            var newPwd     = document.getElementById('new-password').value;
+            var confirmPwd = document.getElementById('confirm-password').value;
+            if (newPwd !== confirmPwd) {
+                e.preventDefault();
+                alert('New passwords do not match.');
+            } else if (newPwd.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters.');
+            }
+        });
+    }
 </script>
 </body>
 </html>
