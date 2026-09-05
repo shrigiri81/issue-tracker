@@ -417,7 +417,7 @@
                     <label class="form-label" for="ci-assignee">Assign To</label>
                     <select id="ci-assignee" name="assignedTo" class="form-control">
                         <option value="">— Unassigned —</option>
-                        <option th:each="u : ${allUsers}" th:value="${u.userId}" th:text="${u.username}">User</option>
+                        <option th:each="u : ${project.projectMembers}" th:value="${u.userId}" th:text="${u.username}">User</option>
                     </select>
                 </div>
             </div>

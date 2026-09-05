@@ -8,6 +8,7 @@ import org.hibernate.annotations.CurrentTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -39,4 +40,11 @@ public class Issues {
     @ManyToOne
     @JoinColumn(name = "assigned_to")
     private Users assignedTo;
+
+    @OneToMany(
+            mappedBy = "issue",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<Comments> comments;
 }

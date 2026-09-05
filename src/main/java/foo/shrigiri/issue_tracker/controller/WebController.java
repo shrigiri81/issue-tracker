@@ -206,14 +206,16 @@ public class WebController {
                 ? issue.getAssignedTo().getUsername()
                 : "Unassigned";
 
-        List<Users> allUsers = usersService.getAllUsers();
+        List<Users> projectMembers = issueProject != null && issueProject.getProjectMembers() != null
+                ? issueProject.getProjectMembers()
+                : List.of();
 
         model.addAttribute("issue", issue);
         model.addAttribute("projectName", projectName);
         model.addAttribute("projectId", projectId);
         model.addAttribute("createdByName", createdByName);
         model.addAttribute("assignedToName", assignedToName);
-        model.addAttribute("allUsers", allUsers);
+        model.addAttribute("projectMembers", projectMembers);
         model.addAttribute("currentUser", authentication != null ? authentication.getName() : "");
         log.info("Issue detail loaded for issue id: {}", id);
         return "issue-detail";

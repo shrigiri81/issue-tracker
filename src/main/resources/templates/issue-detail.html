@@ -202,7 +202,7 @@
                                     <label class="form-label" for="edit-assignee">Assigned To</label>
                                     <select id="edit-assignee" name="assignedTo" class="form-control">
                                         <option value="">— Unassigned —</option>
-                                        <option th:each="u : ${allUsers}"
+                                        <option th:each="u : ${projectMembers}"
                                                 th:value="${u.userId}"
                                                 th:selected="${u.userId == issue.assignedTo}"
                                                 th:text="${u.username}">User</option>
