@@ -31,4 +31,8 @@ public class Comments {
     @ManyToOne
     @JoinColumn(name = "issue_id")
     private Issues issue;
+
+    @ManyToOne
+    @JoinColumn(name = "replied_to_comment_id")
+    private Comments repliedTo;
 }

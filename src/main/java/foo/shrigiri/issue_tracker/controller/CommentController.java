@@ -1,8 +1,10 @@
 package foo.shrigiri.issue_tracker.controller;
 
+import foo.shrigiri.issue_tracker.dto.CommentRequest;
 import foo.shrigiri.issue_tracker.model.Comments;
 import foo.shrigiri.issue_tracker.service.CommentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,8 +38,8 @@ public class CommentController {
     }
 
     @PostMapping("/api/issues/{issueId}/comments")
-    public ResponseEntity<Comments> addComment(@RequestBody Comments comment) {
-        Comments response = commentService.addComment(comment);
+    public ResponseEntity<Comments> addComment(@PathVariable Integer issueId, @RequestBody CommentRequest comment, Authentication auth) {
+        Comments response = commentService.addComment(issueId, comment, auth.getName());
 
         return ResponseEntity.accepted().body(response);
     }
