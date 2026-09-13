@@ -7,11 +7,33 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Attach JWT to every request
+// Recursively ensure any User entity payload (having userId) includes enabled: true
+// so Spring Boot / Jackson never encounters a null for the primitive boolean enabled field
+function ensureUserEnabled(obj) {
+  if (!obj || typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) {
+    obj.forEach(ensureUserEnabled)
+    return obj
+  }
+  if ('userId' in obj && typeof obj.enabled !== 'boolean') {
+    obj.enabled = true
+  }
+  for (const key of Object.keys(obj)) {
+    if (obj[key] && typeof obj[key] === 'object') {
+      ensureUserEnabled(obj[key])
+    }
+  }
+  return obj
+}
+
+// Attach JWT to every request and sanitize payloads for strict Jackson primitive deserialization
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('jwt_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  if (config.data && typeof config.data === 'object') {
+    ensureUserEnabled(config.data)
   }
   return config
 })
@@ -70,8 +92,25 @@ export const apiUpdateProject = async (id, project, memberIds) => {
 
 // DELETE /api/projects/{id} → String
 export const apiDeleteProject = async (id) => {
+  // Clean up any child issues so foreign key constraints in database don't block deletion
+  try {
+    const issuesRes = await api.get('/issues')
+    const projectIssues = (issuesRes.data || []).filter(
+      (i) => i.project?.projId === parseInt(id) || i.project?.projId === id
+    )
+    for (const issue of projectIssues) {
+      try {
+        await api.delete(`/issues/${issue.issueId}/`)
+      } catch {}
+    }
+  } catch {}
+
   const res = await api.delete(`/projects/${id}`)
+  if (typeof res?.data === 'string' && (res.data.includes('Failed') || res.data.includes('error'))) {
+    throw new Error(res.data)
+  }
   queryClient.invalidateQueries({ queryKey: ['projects'] })
+  queryClient.invalidateQueries({ queryKey: ['issues'] })
   return res
 }
 
@@ -153,8 +192,109 @@ export const apiDeleteComment = async (issueId, commentId) => {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 // GET /api/users → List<Users>
-//   Users: { userId, username, email, role, enabled }  (password fields write-only)
-export const apiGetUsers = () => api.get('/users')
+//   Users: { userId, username, email, role, enabled }
+export const apiGetUsers = async () => {
+  try {
+    const res = await api.get('/users')
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      return res
+    }
+  } catch {
+    // /api/users endpoint not exposed in backend
+  }
+
+  const usersMap = new Map()
+
+  // Primary fallback: /api/search?query= searches across UsersRepository
+  try {
+    const searchRes = await api.get('/search?query=')
+    if (Array.isArray(searchRes.data)) {
+      searchRes.data
+        .filter((item) => item.type === 'USER')
+        .forEach((u) => {
+          usersMap.set(u.id, {
+            userId: u.id,
+            username: u.name,
+            email: `${u.name}@example.com`,
+          })
+        })
+    }
+  } catch (err) {
+    console.warn('Fallback search users error:', err)
+  }
+
+  // Secondary enrichment: Extract users from projects (which have full ownerId and projectMembers)
+  try {
+    const cachedProjects = queryClient.getQueryData(['projects'])
+    const projectsList = Array.isArray(cachedProjects?.data)
+      ? cachedProjects.data
+      : Array.isArray(cachedProjects)
+      ? cachedProjects
+      : null
+
+    const projectsToScan = projectsList || (await api.get('/projects')).data
+    if (Array.isArray(projectsToScan)) {
+      projectsToScan.forEach((p) => {
+        if (p.ownerId?.userId) {
+          const prev = usersMap.get(p.ownerId.userId) || {}
+          usersMap.set(p.ownerId.userId, {
+            userId: p.ownerId.userId,
+            username: p.ownerId.username || prev.username,
+            email: p.ownerId.email || prev.email || '',
+            role: p.ownerId.role || prev.role,
+          })
+        }
+        if (Array.isArray(p.projectMembers)) {
+          p.projectMembers.forEach((m) => {
+            if (m.userId) {
+              const prev = usersMap.get(m.userId) || {}
+              usersMap.set(m.userId, {
+                userId: m.userId,
+                username: m.username || prev.username,
+                email: m.email || prev.email || '',
+                role: m.role || prev.role,
+              })
+            }
+          })
+        }
+      })
+    }
+  } catch (err) {
+    console.warn('Fallback projects users error:', err)
+  }
+
+  // Tertiary enrichment: Extract from issues
+  try {
+    const cachedIssues = queryClient.getQueryData(['issues'])
+    const issuesList = Array.isArray(cachedIssues?.data)
+      ? cachedIssues.data
+      : Array.isArray(cachedIssues)
+      ? cachedIssues
+      : null
+    if (Array.isArray(issuesList)) {
+      issuesList.forEach((i) => {
+        if (i.createdBy?.userId) {
+          const prev = usersMap.get(i.createdBy.userId) || {}
+          usersMap.set(i.createdBy.userId, {
+            userId: i.createdBy.userId,
+            username: i.createdBy.username || prev.username,
+            email: i.createdBy.email || prev.email || '',
+          })
+        }
+        if (i.assignedTo?.userId) {
+          const prev = usersMap.get(i.assignedTo.userId) || {}
+          usersMap.set(i.assignedTo.userId, {
+            userId: i.assignedTo.userId,
+            username: i.assignedTo.username || prev.username,
+            email: i.assignedTo.email || prev.email || '',
+          })
+        }
+      })
+    }
+  } catch {}
+
+  return { data: Array.from(usersMap.values()) }
+}
 
 // GET /api/users/{id} → Users
 export const apiGetUser = (id) => api.get(`/users/${id}`)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FolderKanban, Plus, Search, Trash2, ArrowRight, Lock, LogIn } from 'lucide-react'
 import Modal from '../components/Modal'
@@ -6,7 +6,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import Avatar from '../components/Avatar'
 import { stripContentWrapper } from '../utils/text'
-import { apiCreateProject, apiDeleteProject } from '../api/client'
+import { apiCreateProject, apiDeleteProject, apiSearch } from '../api/client'
 import { useProjects, useIssues, useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
@@ -34,12 +34,32 @@ export default function ProjectsPage() {
   const { data: projects = [], isLoading: projectsLoading, error: projError, refetch: refetchProjects } = useProjects()
   const { data: allIssues = [], isLoading: issuesLoading } = useIssues()
   // Users fetched lazily only when New Project modal is opened
-  const { data: users = [] } = useUsers({ enabled: showCreate })
+  const { data: users = [], isLoading: usersLoading } = useUsers({ enabled: showCreate })
+
+  // Auto-select current user when modal opens and users become available
+  useEffect(() => {
+    if (showCreate && users.length > 0 && selectedMembers.length === 0) {
+      const me = users.find((u) => u.username === user?.username)
+      if (me?.userId) {
+        setSelectedMembers([me.userId])
+      } else if (user?.userId) {
+        setSelectedMembers([user.userId])
+      }
+    }
+  }, [showCreate, users, user?.username, user?.userId, selectedMembers.length])
 
   const loading = projectsLoading || issuesLoading
   const error = projError?.response?.data || projError?.message || ''
 
-  const showAlert = (message, title = 'Notice', type = 'error') => {
+  const showAlert = (rawMessage, title = 'Notice', type = 'error') => {
+    let message = rawMessage
+    if (rawMessage && typeof rawMessage === 'object') {
+      message = rawMessage.message || rawMessage.error || JSON.stringify(rawMessage)
+    } else if (rawMessage !== null && rawMessage !== undefined) {
+      message = String(rawMessage)
+    } else {
+      message = 'An unexpected error occurred.'
+    }
     setAlertState({ open: true, title, message, type })
   }
 
@@ -55,15 +75,42 @@ export default function ProjectsPage() {
       let memberIds = [...selectedMembers]
       if (memberIds.length === 0) {
         const me = users.find((u) => u.username === user?.username)
-        if (me) memberIds = [me.userId]
+        if (me?.userId) {
+          memberIds = [me.userId]
+        } else if (user?.userId) {
+          memberIds = [user.userId]
+        } else if (users.length > 0) {
+          memberIds = [users[0].userId]
+        }
       }
-      if (memberIds.length === 0 && users.length > 0) {
-        memberIds = [users[0].userId]
+
+      // Emergency lookup if memberIds is still empty
+      if (memberIds.length === 0 && user?.username) {
+        try {
+          const sRes = await apiSearch(user.username)
+          const selfMatch = (sRes.data || []).find((r) => r.type === 'USER' && r.name === user.username)
+          if (selfMatch?.id) {
+            memberIds = [selfMatch.id]
+          }
+        } catch {}
       }
+
+      if (memberIds.length === 0) {
+        showAlert('Please select at least one team member to create the project.', 'Team Member Required', 'warning')
+        setCreating(false)
+        return
+      }
+
+      const ownerUserId =
+        users.find((u) => u.username === user?.username)?.userId ||
+        user?.userId ||
+        memberIds[0]
+
       await apiCreateProject(
         {
-          projTitle: stripContentWrapper(newProject.projTitle),
-          projDesc: stripContentWrapper(newProject.projDesc),
+          projTitle: stripContentWrapper(newProject.projTitle).trim(),
+          projDesc: stripContentWrapper(newProject.projDesc).trim(),
+          ownerId: { userId: ownerUserId, enabled: true },
         },
         memberIds
       )
@@ -72,7 +119,13 @@ export default function ProjectsPage() {
       setSelectedMembers([])
       await load()
     } catch (err) {
-      showAlert(err.response?.data || err.message || 'Failed to create project.', 'Creation Error')
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        err.message ||
+        'Failed to create project.'
+      showAlert(msg, 'Creation Error', 'error')
     } finally {
       setCreating(false)
     }
@@ -85,8 +138,8 @@ export default function ProjectsPage() {
       await apiDeleteProject(projectToDelete.projId)
       await refetchProjects()
       setProjectToDelete(null)
-    } catch {
-      showAlert('Failed to delete project. Please check your permissions.', 'Delete Error')
+    } catch (err) {
+      showAlert(err.message || err.response?.data || 'Failed to delete project.', 'Delete Error', 'error')
     } finally {
       setDeletingProject(false)
     }
@@ -229,7 +282,7 @@ export default function ProjectsPage() {
                             e.stopPropagation()
                             setProjectToDelete(project)
                           }}
-                          className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg text-[#767684] hover:text-[#ba1a1a] hover:bg-[#ffdad6] flex items-center justify-center transition-all"
+                          className="w-7 h-7 rounded-lg text-[#767684] hover:text-[#ba1a1a] hover:bg-[#ffdad6] flex items-center justify-center transition-all"
                           title="Delete project"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -357,33 +410,67 @@ export default function ProjectsPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold text-[#454652] uppercase tracking-wider font-[Geist,sans-serif]">
-              Members
-            </label>
-            <div className="max-h-40 overflow-y-auto border border-[#c6c5d5] rounded-lg bg-[#f8f9ff] divide-y divide-[#e5eeff]">
-              {users.map((u) => (
-                <label key={u.userId} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[#eff4ff] transition-colors">
-                  <input
-                    type="checkbox"
-                    value={u.userId}
-                    checked={selectedMembers.includes(u.userId)}
-                    onChange={(e) =>
-                      setSelectedMembers((prev) =>
-                        e.target.checked ? [...prev, u.userId] : prev.filter((id) => id !== u.userId)
-                      )
-                    }
-                    className="rounded accent-[#4450b7]"
-                  />
-                  <Avatar name={u.username} size="sm" />
-                  <div className="flex flex-col">
-                    <span className="text-[13px] text-[#0b1c30] font-[Inter,sans-serif]">{u.username}</span>
-                    <span className="text-[11px] text-[#767684]">{u.email}</span>
-                  </div>
-                </label>
-              ))}
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-[#454652] uppercase tracking-wider font-[Geist,sans-serif]">
+                Team Members *
+              </label>
+              <span className="text-[11px] text-[#4450b7] font-medium font-[Geist,sans-serif]">
+                {selectedMembers.length} selected
+              </span>
+            </div>
+            <div className="max-h-48 overflow-y-auto border border-[#c6c5d5] rounded-lg bg-[#f8f9ff] divide-y divide-[#e5eeff]">
+              {usersLoading ? (
+                <div className="p-4 text-center text-[12px] text-[#767684] font-[Inter,sans-serif]">
+                  Loading team members...
+                </div>
+              ) : users.length === 0 ? (
+                <div className="p-4 text-center text-[12px] text-[#767684] font-[Inter,sans-serif]">
+                  No team members found.
+                </div>
+              ) : (
+                users.map((u) => {
+                  const isSelf = u.username === user?.username
+                  return (
+                    <label
+                      key={u.userId}
+                      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[#eff4ff] transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        value={u.userId}
+                        checked={selectedMembers.includes(u.userId)}
+                        onChange={(e) =>
+                          setSelectedMembers((prev) =>
+                            e.target.checked
+                              ? [...prev, u.userId]
+                              : prev.filter((id) => id !== u.userId)
+                          )
+                        }
+                        className="rounded accent-[#4450b7]"
+                      />
+                      <Avatar name={u.username} size="sm" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] text-[#0b1c30] font-[Inter,sans-serif] flex items-center gap-1.5">
+                          {u.username}
+                          {isSelf && (
+                            <span className="text-[10px] bg-[#eff4ff] text-[#4450b7] font-bold px-1.5 py-0.5 rounded border border-[#dce9ff]">
+                              You
+                            </span>
+                          )}
+                        </span>
+                        {u.email && (
+                          <span className="text-[11px] text-[#767684] truncate">
+                            {u.email}
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })
+              )}
             </div>
             <p className="text-[11px] text-[#767684] font-[Inter,sans-serif]">
-              If none selected, you will be added as the sole member.
+              You will be automatically added as a team member if no one else is selected.
             </p>
           </div>
           <div className="flex gap-2 pt-2">

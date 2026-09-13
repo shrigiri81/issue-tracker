@@ -3,29 +3,34 @@ import { AlertTriangle, Info, X } from 'lucide-react'
 
 export default function ConfirmModal({
   open,
+  isOpen,
   onClose,
+  onCancel,
   onConfirm,
   title = 'Confirm Action',
   message = 'Are you sure you want to proceed?',
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
+  isDanger: propIsDanger,
   loading = false,
 }) {
+  const isModalOpen = open ?? isOpen ?? false
+  const handleClose = onClose || onCancel || (() => {})
   const backdropRef = useRef(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!isModalOpen) return
     const handler = (e) => {
-      if (e.key === 'Escape' && !loading) onClose()
+      if (e.key === 'Escape' && !loading) handleClose()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose, loading])
+  }, [isModalOpen, handleClose, loading])
 
-  if (!open) return null
+  if (!isModalOpen) return null
 
-  const isDanger = variant === 'danger'
+  const isDanger = propIsDanger !== undefined ? propIsDanger : variant === 'danger'
 
   return (
     <div

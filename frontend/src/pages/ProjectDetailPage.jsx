@@ -59,7 +59,15 @@ export default function ProjectDetailPage() {
     action: null,
   })
 
-  const showAlert = (message, title = 'Notice', type = 'error') => {
+  const showAlert = (rawMessage, title = 'Notice', type = 'error') => {
+    let message = rawMessage
+    if (rawMessage && typeof rawMessage === 'object') {
+      message = rawMessage.message || rawMessage.error || JSON.stringify(rawMessage)
+    } else if (rawMessage !== null && rawMessage !== undefined) {
+      message = String(rawMessage)
+    } else {
+      message = 'An unexpected error occurred.'
+    }
     setAlertState({ isOpen: true, title, message, type })
   }
 
@@ -131,9 +139,9 @@ export default function ProjectDetailPage() {
         project: {
           projId: parseInt(id),
           projTitle: project?.projTitle,
-          projectMembers: members.map((m) => ({ userId: m.userId, username: m.username })),
+          projectMembers: members.map((m) => ({ userId: m.userId, username: m.username, enabled: true })),
         },
-        assignedTo: { userId: assignedUserId },
+        assignedTo: { userId: assignedUserId, enabled: true },
       }
       const res = await apiCreateIssue(payload)
       if (typeof res.data === 'string' && (res.data.includes('not a part') || res.data.startsWith('Failed'))) {
@@ -159,7 +167,21 @@ export default function ProjectDetailPage() {
         const me = allUsers.find((u) => u.username === user?.username)
         if (me) memberIds = [me.userId]
       }
-      await apiUpdateProject(id, { projTitle: editProject.projTitle, projDesc: editProject.projDesc }, memberIds)
+      const ownerUserId =
+        project?.ownerId?.userId ||
+        allUsers.find((u) => u.username === user?.username)?.userId ||
+        user?.userId ||
+        memberIds[0]
+
+      await apiUpdateProject(
+        id,
+        {
+          projTitle: editProject.projTitle,
+          projDesc: editProject.projDesc,
+          ownerId: ownerUserId ? { userId: ownerUserId } : undefined,
+        },
+        memberIds
+      )
       setShowEditProject(false)
       await load()
     } catch (err) {
@@ -207,7 +229,25 @@ export default function ProjectDetailPage() {
     })
   }
 
-  const isProjectOwner = project?.ownerId?.username === user?.username || user?.role === 'ADMIN'
+  const isProjectOwner = useMemo(() => {
+    // Legacy projects in DB without an ownerId can be edited and deleted by the user
+    if (!project?.ownerId || !project?.ownerId?.username) {
+      return true
+    }
+    if (user?.username && project.ownerId.username === user.username) {
+      return true
+    }
+    if (user?.userId && project.ownerId.userId === user.userId) {
+      return true
+    }
+    if (project?.projectMembers?.some((m) => m.username === user?.username || m.userId === user?.userId)) {
+      return true
+    }
+    if (user?.role === 'ADMIN' || user?.role === 'ROLE_ADMIN') {
+      return true
+    }
+    return false
+  }, [project?.ownerId, project?.projectMembers, user?.username, user?.userId, user?.role])
 
   const filtered = issues.filter((i) => {
     const matchQuery = !filterQuery || i.issueTitle?.toLowerCase().includes(filterQuery.toLowerCase())
@@ -325,24 +365,20 @@ export default function ProjectDetailPage() {
               <PlusCircle className="w-4 h-4" />
               <span>New Issue</span>
             </button>
-            {isProjectOwner && (
-              <>
-                <button
-                  onClick={() => setShowEditProject(true)}
-                  className="h-9 px-3.5 bg-[#eff4ff] hover:bg-[#e5eeff] text-[#0b1c30] text-[12px] font-semibold rounded-xl flex items-center gap-1.5 border border-[#c6d7ff] transition-colors font-[Geist,sans-serif]"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-[#565e74]" />
-                  <span>Edit Project</span>
-                </button>
-                <button
-                  onClick={promptDeleteProject}
-                  className="h-9 px-3.5 bg-red-50 hover:bg-red-100 text-red-600 text-[12px] font-semibold rounded-xl flex items-center gap-1.5 border border-red-200 transition-colors font-[Geist,sans-serif] ml-auto"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Project</span>
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setShowEditProject(true)}
+              className="h-9 px-3.5 bg-[#eff4ff] hover:bg-[#e5eeff] text-[#0b1c30] text-[12px] font-semibold rounded-xl flex items-center gap-1.5 border border-[#c6d7ff] transition-colors font-[Geist,sans-serif]"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-[#565e74]" />
+              <span>Edit Project</span>
+            </button>
+            <button
+              onClick={promptDeleteProject}
+              className="h-9 px-3.5 bg-red-50 hover:bg-red-100 text-red-600 text-[12px] font-semibold rounded-xl flex items-center gap-1.5 border border-red-200 transition-colors font-[Geist,sans-serif] ml-auto"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Project</span>
+            </button>
           </div>
         </div>
 
@@ -676,17 +712,18 @@ export default function ProjectDetailPage() {
 
       {/* App-styled Confirm Modal (Item 3) */}
       <ConfirmModal
+        open={confirmState.isOpen}
         isOpen={confirmState.isOpen}
         title={confirmState.title}
         message={confirmState.message}
         confirmText={confirmState.confirmText}
-        isDanger={confirmState.isDanger}
+        variant={confirmState.isDanger ? 'danger' : 'info'}
         onConfirm={async () => {
           const fn = confirmState.action
           setConfirmState((prev) => ({ ...prev, isOpen: false }))
           if (fn) await fn()
         }}
-        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
       />
 
       {/* App-styled Alert Modal (Item 3) */}

@@ -75,7 +75,15 @@ export default function DashboardPage() {
   // Search text filter
   const [searchQuery, setSearchQuery] = useState('')
 
-  const showAlert = (message, title = 'Notice', type = 'error') => {
+  const showAlert = (rawMessage, title = 'Notice', type = 'error') => {
+    let message = rawMessage
+    if (rawMessage && typeof rawMessage === 'object') {
+      message = rawMessage.message || rawMessage.error || JSON.stringify(rawMessage)
+    } else if (rawMessage !== null && rawMessage !== undefined) {
+      message = String(rawMessage)
+    } else {
+      message = 'An unexpected error occurred.'
+    }
     setAlertState({ isOpen: true, title, message, type })
   }
 
@@ -246,8 +254,8 @@ export default function DashboardPage() {
         status: issueForm.status,
         priority: issueForm.priority,
         project: { projId: parseInt(issueForm.projectId) },
-        createdBy: currentUser?.userId ? { userId: currentUser.userId } : { username: user?.username },
-        assignedTo: { userId: parseInt(issueForm.assignedToId) },
+        createdBy: currentUser?.userId ? { userId: currentUser.userId, enabled: true } : { username: user?.username },
+        assignedTo: { userId: parseInt(issueForm.assignedToId), enabled: true },
       }
 
       await apiCreateIssue(payload)

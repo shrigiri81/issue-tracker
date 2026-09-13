@@ -60,7 +60,9 @@ export default function AlertModal({
                 </button>
               </div>
               <p className="text-[13px] text-[#565e74] mt-2 leading-relaxed font-[Inter,sans-serif]">
-                {message}
+                {typeof message === 'object' && message !== null
+                  ? message.message || message.error || JSON.stringify(message)
+                  : String(message ?? '')}
               </p>
             </div>
           </div>

@@ -23,7 +23,15 @@ export default function ProfilePage() {
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'error' })
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
 
-  const showAlert = (message, title = 'Notification', type = 'error') => {
+  const showAlert = (rawMessage, title = 'Notification', type = 'error') => {
+    let message = rawMessage
+    if (rawMessage && typeof rawMessage === 'object') {
+      message = rawMessage.message || rawMessage.error || JSON.stringify(rawMessage)
+    } else if (rawMessage !== null && rawMessage !== undefined) {
+      message = String(rawMessage)
+    } else {
+      message = 'An unexpected error occurred.'
+    }
     setAlertState({ isOpen: true, title, message, type })
   }
 

@@ -23,7 +23,7 @@ import {
   apiUpdateComment,
   apiDeleteComment,
 } from '../api/client'
-import { useIssue, useComments, useUsers } from '../api/queries'
+import { useIssue, useComments, useUsers, useProject } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 function formatDate(d) {
@@ -76,7 +76,15 @@ export default function IssueDetailPage() {
 
   const commentInputRef = useRef(null)
 
-  const showAlert = (message, title = 'Notice', type = 'error') => {
+  const showAlert = (rawMessage, title = 'Notice', type = 'error') => {
+    let message = rawMessage
+    if (rawMessage && typeof rawMessage === 'object') {
+      message = rawMessage.message || rawMessage.error || JSON.stringify(rawMessage)
+    } else if (rawMessage !== null && rawMessage !== undefined) {
+      message = String(rawMessage)
+    } else {
+      message = 'An unexpected error occurred.'
+    }
     setAlertState({ open: true, title, message, type })
   }
 
@@ -85,6 +93,15 @@ export default function IssueDetailPage() {
   const { data: comments = [], isLoading: commentsLoading, refetch: refetchComments } = useComments(id)
   // Fetch users only when editing drawer is active
   const { data: allUsers = [] } = useUsers({ enabled: editing })
+  // Fetch project details to know valid project members for assignee
+  const { data: projectDetails } = useProject(issue?.project?.projId, { enabled: !!issue?.project?.projId })
+
+  const assignableUsers = useMemo(() => {
+    if (projectDetails?.projectMembers && projectDetails.projectMembers.length > 0) {
+      return projectDetails.projectMembers
+    }
+    return allUsers
+  }, [projectDetails?.projectMembers, allUsers])
 
   const loading = issueLoading || commentsLoading
   const error = issueError?.response?.data || issueError?.message || ''
@@ -133,18 +150,26 @@ export default function IssueDetailPage() {
     setSaving(true)
     try {
       const payload = {
-        ...issue,
-        issueTitle: stripContentWrapper(editForm.issueTitle),
-        issueDesc: stripContentWrapper(editForm.issueDesc),
+        issueId: parseInt(id),
+        issueTitle: stripContentWrapper(editForm.issueTitle).trim(),
+        issueDesc: stripContentWrapper(editForm.issueDesc).trim(),
         status: editForm.status,
         priority: editForm.priority,
-        assignedTo: { userId: assignedUserId },
+        project: issue?.project?.projId ? { projId: issue.project.projId } : undefined,
+        assignedTo: { userId: assignedUserId, enabled: true },
+        createdBy: issue?.createdBy?.userId ? { userId: issue.createdBy.userId, enabled: true } : undefined,
       }
       await apiUpdateIssue(id, payload)
       setEditing(false)
       await load()
     } catch (err) {
-      showAlert(err.response?.data || err.message || 'Failed to update issue.', 'Update Failed')
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        err.message ||
+        'Failed to update issue.'
+      showAlert(msg, 'Update Failed', 'error')
     } finally {
       setSaving(false)
     }
@@ -569,7 +594,7 @@ export default function IssueDetailPage() {
                         className="w-full h-8.5 px-2 rounded-lg bg-[#f8f9ff] border border-[#c6c5d5] text-[12px] outline-none focus:border-[#4450b7] transition-all font-[Inter,sans-serif]"
                       >
                         <option value="">— Select Assignee —</option>
-                        {allUsers.map((u) => (
+                        {assignableUsers.map((u) => (
                           <option key={u.userId} value={u.userId}>
                             {u.username}
                           </option>
