@@ -6,6 +6,7 @@ build/
 !**/src/test/**/build/
 .env
 stitch_ui_ux_redesign/**
+.zip
 
 ### STS ###
 .apt_generated

@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* ─── Linear Craft Engine Design Tokens ─────────────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #454652;
+  --color-inverse-surface: #213145;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-outline: #767684;
+  --color-outline-variant: #c6c5d5;
+  --color-surface-tint: #4854bb;
+  --color-primary: #4450b7;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #5e6ad2;
+  --color-on-primary-container: #fdfaff;
+  --color-inverse-primary: #bdc2ff;
+  --color-secondary: #565e74;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #dae2fd;
+  --color-on-secondary-container: #5c647a;
+  --color-tertiary: #b70438;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #db2b4e;
+  --color-on-tertiary-container: #fffaf9;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-primary-fixed: #dfe0ff;
+  --color-primary-fixed-dim: #bdc2ff;
+  --color-on-primary-fixed: #000965;
+  --color-on-primary-fixed-variant: #2e3aa2;
+  --color-secondary-fixed: #dae2fd;
+  --color-secondary-fixed-dim: #bec6e0;
+  --color-on-secondary-fixed: #131b2e;
+  --color-on-secondary-fixed-variant: #3f465c;
+  --color-surface-variant: #d3e4fe;
+  --color-background: #f8f9ff;
+  --color-on-background: #0b1c30;
+
+  /* Typography Families */
+  --font-geist: 'Geist', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing tokens */
+  --spacing-sidebar-width: 15rem;
+  --spacing-sidebar-collapsed: 4rem;
+  --spacing-inspector-width: 20rem;
+  --spacing-header-height: 3.25rem;
+  --spacing-gutter-xs: 0.25rem;
+  --spacing-gutter-sm: 0.5rem;
+  --spacing-gutter-md: 0.75rem;
+  --spacing-gutter-lg: 1rem;
+  --spacing-gutter-xl: 1.5rem;
+  --spacing-gutter-2xl: 2rem;
+  --spacing-row-height-dense: 2.25rem;
+  --spacing-row-height-normal: 2.75rem;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-inter);
+  }
+
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}
