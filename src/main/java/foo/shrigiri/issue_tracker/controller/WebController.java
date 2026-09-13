@@ -1,5 +1,6 @@
 package foo.shrigiri.issue_tracker.controller;
 
+import foo.shrigiri.issue_tracker.dto.CommentRequest;
 import foo.shrigiri.issue_tracker.model.Comments;
 import foo.shrigiri.issue_tracker.model.Issues;
 import foo.shrigiri.issue_tracker.model.Projects;
@@ -271,18 +272,15 @@ public class WebController {
     @PostMapping("/issues/{issueId}/comments")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> addComment(@PathVariable Integer issueId,
-                                                          @RequestBody Comments comment,
+                                                          @RequestBody CommentRequest commentRequest,
                                                           Authentication authentication) {
         log.info("Adding comment to issue {}", issueId);
-        Issues issue = issuesService.getIssueById(issueId).orElseThrow();
-        Users author = usersService.findByUsername(authentication.getName());
-        comment.setIssue(issue);
-        comment.setCommentAuthor(author);
-        Comments saved = commentService.addComment(comment);
+        String username = authentication.getName();
+        Comments saved = commentService.addComment(issueId, commentRequest, username);
         Map<String, Object> response = new HashMap<>();
         response.put("commentId",   saved.getCommentId());
         response.put("commentData", saved.getCommentData());
-        response.put("authorUsername", author != null ? author.getUsername() : "");
+        response.put("authorUsername", saved.getCommentAuthor() != null ? saved.getCommentAuthor().getUsername() : "");
         return ResponseEntity.ok(response);
     }
 

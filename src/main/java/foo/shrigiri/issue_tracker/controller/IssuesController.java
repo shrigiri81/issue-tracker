@@ -30,7 +30,7 @@ public class IssuesController {
     }
 
     @GetMapping("/api/issues/{id}")
-    public ResponseEntity<Issues> getIssueById(Integer id) {
+    public ResponseEntity<Issues> getIssueById(@PathVariable Integer id) {
         log.debug("Fetching issue with id: {}", id);
         Optional<Issues> issue = issuesService.getIssueById(id);
         if (issue.isPresent()) {

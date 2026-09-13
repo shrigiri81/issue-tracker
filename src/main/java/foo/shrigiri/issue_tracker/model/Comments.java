@@ -1,5 +1,6 @@
 package foo.shrigiri.issue_tracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -30,9 +31,11 @@ public class Comments {
 
     @ManyToOne
     @JoinColumn(name = "issue_id")
+    @JsonIgnoreProperties({"comments", "project"})
     private Issues issue;
 
     @ManyToOne
     @JoinColumn(name = "replied_to_comment_id")
+    @JsonIgnoreProperties({"repliedTo", "issue"})
     private Comments repliedTo;
 }

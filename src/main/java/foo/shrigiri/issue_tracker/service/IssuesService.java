@@ -4,6 +4,7 @@ import foo.shrigiri.issue_tracker.model.Issues;
 import foo.shrigiri.issue_tracker.model.Projects;
 import foo.shrigiri.issue_tracker.model.Users;
 import foo.shrigiri.issue_tracker.repository.IssuesRepository;
+import foo.shrigiri.issue_tracker.repository.ProjectRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,11 @@ import java.util.Optional;
 public class IssuesService {
 
     private final IssuesRepository issuesRepository;
+    private final ProjectRepository projectRepository;
 
-    public IssuesService(IssuesRepository issuesRepository) {
+    public IssuesService(IssuesRepository issuesRepository, ProjectRepository projectRepository) {
         this.issuesRepository = issuesRepository;
+        this.projectRepository = projectRepository;
         log.info("IssuesService initialized");
     }
 
@@ -43,13 +46,19 @@ public class IssuesService {
     public String addIssue(Issues issue) {
         log.info("Saving new issue: {}", issue.getIssueTitle());
         Projects project1 = issue.getProject();
-        log.info("Fetched Project with id {}", project1.getProjId());
-        log.info("Checking if assigned user with id {} is a project member", issue.getAssignedTo().getUserId());
-        List<Integer> projectMembersId = project1.getProjectMembers().stream().map(Users::getUserId).toList();
-        Integer issueAssignedUserId = issue.getAssignedTo().getUserId();
-        if (projectMembersId.stream().noneMatch(userId -> userId.equals(issueAssignedUserId))) {
-            log.info("User with id {} not a part of project team", issue.getAssignedTo().getUserId());
-            return "User not a part of project team.";
+        if (project1 != null && project1.getProjId() != null) {
+            if (project1.getProjectMembers() == null || project1.getProjectMembers().isEmpty()) {
+                project1 = projectRepository.findById(project1.getProjId()).orElse(project1);
+                issue.setProject(project1);
+            }
+        }
+        if (project1 != null && project1.getProjectMembers() != null && !project1.getProjectMembers().isEmpty() && issue.getAssignedTo() != null && issue.getAssignedTo().getUserId() != null) {
+            List<Integer> projectMembersId = project1.getProjectMembers().stream().map(Users::getUserId).toList();
+            Integer issueAssignedUserId = issue.getAssignedTo().getUserId();
+            if (projectMembersId.stream().noneMatch(userId -> userId.equals(issueAssignedUserId))) {
+                log.info("User with id {} not a part of project team", issue.getAssignedTo().getUserId());
+                return "User not a part of project team.";
+            }
         }
         try {
             issuesRepository.save(issue);
@@ -64,12 +73,19 @@ public class IssuesService {
     public Issues updateIssue(Issues issue) {
         log.info("Updating issue with id: {}", issue.getIssueId());
         Projects project1 = issue.getProject();
-        log.info("Checking if assigned user is a project member");
-        List<Integer> projectMembersId = project1.getProjectMembers().stream().map(Users::getUserId).toList();
-        Integer issueAssignedUserId = issue.getAssignedTo().getUserId();
-        if (projectMembersId.stream().noneMatch(userId -> userId.equals(issueAssignedUserId))) {
-            log.info("User with id {} not a part of project team", issue.getAssignedTo().getUserId());
-            throw new UsernameNotFoundException("User not part of the project team");
+        if (project1 != null && project1.getProjId() != null) {
+            if (project1.getProjectMembers() == null || project1.getProjectMembers().isEmpty()) {
+                project1 = projectRepository.findById(project1.getProjId()).orElse(project1);
+                issue.setProject(project1);
+            }
+        }
+        if (project1 != null && project1.getProjectMembers() != null && !project1.getProjectMembers().isEmpty() && issue.getAssignedTo() != null && issue.getAssignedTo().getUserId() != null) {
+            List<Integer> projectMembersId = project1.getProjectMembers().stream().map(Users::getUserId).toList();
+            Integer issueAssignedUserId = issue.getAssignedTo().getUserId();
+            if (projectMembersId.stream().noneMatch(userId -> userId.equals(issueAssignedUserId))) {
+                log.info("User with id {} not a part of project team", issue.getAssignedTo().getUserId());
+                throw new UsernameNotFoundException("User not part of the project team");
+            }
         }
         Issues updated = issuesRepository.save(issue);
         log.info("Issue updated successfully with id: {}", updated.getIssueId());

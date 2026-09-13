@@ -1,5 +1,6 @@
 package foo.shrigiri.issue_tracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,6 +32,7 @@ public class Issues {
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonIgnoreProperties({"issues", "projectMembers"})
     private Projects project;
 
     @ManyToOne
@@ -46,5 +48,6 @@ public class Issues {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @JsonIgnoreProperties("issue")
     private List<Comments> comments;
 }

@@ -20,8 +20,8 @@ public class CommentController {
     }
 
     @GetMapping("/api/issues/{issueId}/comments")
-    public ResponseEntity<List<Comments>> getAllComments() {
-        List<Comments> response = commentService.getAllComments();
+    public ResponseEntity<List<Comments>> getAllComments(@PathVariable Integer issueId) {
+        List<Comments> response = commentService.getCommentsByIssueId(issueId);
 
         return ResponseEntity.ok(response);
     }

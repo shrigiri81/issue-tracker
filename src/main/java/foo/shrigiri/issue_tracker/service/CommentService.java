@@ -29,6 +29,10 @@ public class CommentService {
         return commentRepository.findAll();
     }
 
+    public List<Comments> getCommentsByIssueId(Integer issueId) {
+        return commentRepository.findByIssue_IssueId(issueId);
+    }
+
     public Optional<Comments> getCommentById(Integer commentId) {
         return commentRepository.findById(commentId);
     }

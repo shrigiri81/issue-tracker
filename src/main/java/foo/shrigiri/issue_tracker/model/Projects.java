@@ -1,5 +1,6 @@
 package foo.shrigiri.issue_tracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -45,5 +46,6 @@ public class Projects {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @JsonIgnoreProperties("project")
     private List<Issues> issues = new ArrayList<>();
 }
