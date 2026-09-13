@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { apiLogin } from '../api/client'
+import { queryClient } from '../queryClient'
 
 const AuthContext = createContext(null)
 
@@ -34,6 +35,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem('jwt_token')
     localStorage.removeItem('jwt_user')
+    queryClient.clear()
     setToken(null)
     setUser(null)
   }, [])

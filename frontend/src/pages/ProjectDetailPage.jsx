@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -22,14 +22,12 @@ import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { stripContentWrapper } from '../utils/text'
 import {
-  apiGetProject,
-  apiGetIssues,
+  apiUpdateProject,
   apiCreateIssue,
   apiDeleteIssue,
-  apiUpdateProject,
   apiDeleteProject,
-  apiGetUsers,
 } from '../api/client'
+import { useProject, useIssues, useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 function formatDate(d) {
@@ -42,11 +40,6 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [project, setProject] = useState(null)
-  const [issues, setIssues] = useState([])
-  const [allUsers, setAllUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [filterQuery, setFilterQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterPriority, setFilterPriority] = useState('ALL')
@@ -74,46 +67,43 @@ export default function ProjectDetailPage() {
   const [newIssue, setNewIssue] = useState({ issueTitle: '', issueDesc: '', status: 'OPEN', priority: 'MEDIUM', assignedToId: '' })
   const [editProject, setEditProject] = useState({ projTitle: '', projDesc: '', memberIds: [] })
 
-  const load = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const [projRes, issuesRes, usersRes] = await Promise.allSettled([
-        apiGetProject(id),
-        apiGetIssues(),
-        apiGetUsers(),
-      ])
+  // React Query hooks
+  const { data: project, isLoading: projLoading, error: projError, refetch: refetchProject } = useProject(id)
+  const { data: allIssues = [], isLoading: issuesLoading, refetch: refetchIssues } = useIssues()
+  // Fetch users only when New Issue or Edit Project modal opens
+  const { data: allUsers = [] } = useUsers({ enabled: showNewIssue || showEditProject })
 
-      if (projRes.status === 'fulfilled') {
-        const proj = projRes.value.data
-        setProject(proj)
-        const memberIds = (proj.projectMembers ?? []).map((m) => m.userId)
-        setEditProject({ projTitle: proj.projTitle ?? '', projDesc: proj.projDesc ?? '', memberIds })
-      } else {
-        const err = projRes.reason
-        if (err.response?.status === 404) { navigate('/projects'); return }
-        setError(err.response?.data || err.message || 'Failed to load project.')
-      }
+  const loading = projLoading || issuesLoading
+  const error = projError?.response?.data || projError?.message || ''
 
-      let projectIssues = []
-      if (projRes.status === 'fulfilled' && Array.isArray(projRes.value.data?.issues) && projRes.value.data.issues.length > 0) {
-        projectIssues = projRes.value.data.issues
-      } else if (issuesRes.status === 'fulfilled') {
-        const allIssues = Array.isArray(issuesRes.value.data) ? issuesRes.value.data : []
-        const matching = allIssues.filter((i) => i.project?.projId === parseInt(id))
-        projectIssues = matching
-      }
-      setIssues(projectIssues)
-
-      if (usersRes.status === 'fulfilled') {
-        setAllUsers(Array.isArray(usersRes.value.data) ? usersRes.value.data : [])
-      }
-    } finally {
-      setLoading(false)
+  // Compute issues belonging to this project
+  const issues = useMemo(() => {
+    if (Array.isArray(project?.issues) && project.issues.length > 0) {
+      return project.issues
     }
-  }
+    const numericId = parseInt(id)
+    return allIssues.filter((i) => i.project?.projId === numericId)
+  }, [project?.issues, allIssues, id])
 
-  useEffect(() => { load() }, [id])
+  // Sync edit form when project details load
+  useEffect(() => {
+    if (project) {
+      const memberIds = (project.projectMembers ?? []).map((m) => m.userId)
+      setEditProject({ projTitle: project.projTitle ?? '', projDesc: project.projDesc ?? '', memberIds })
+    }
+  }, [project])
+
+  // Handle 404
+  useEffect(() => {
+    if (projError?.response?.status === 404) {
+      navigate('/projects')
+    }
+  }, [projError, navigate])
+
+  const load = () => {
+    refetchProject()
+    refetchIssues()
+  }
 
   const handleCreateIssue = async (e) => {
     e.preventDefault()
@@ -209,7 +199,8 @@ export default function ProjectDetailPage() {
       action: async () => {
         try {
           await apiDeleteIssue(issueId)
-          setIssues((prev) => prev.filter((i) => i.issueId !== issueId))
+          await refetchIssues()
+          await refetchProject()
         } catch (err) {
           showAlert(err.response?.data || err.message || 'Failed to delete issue.', 'Delete Error')
         }

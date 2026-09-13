@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Shield, AlertTriangle, Info, CheckCircle2, Lock, KeyRound, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import Avatar from '../components/Avatar'
 import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
-import api, { apiGetUsers, apiDeleteUser } from '../api/client'
+import api, { apiDeleteUser } from '../api/client'
+import { useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProfilePage() {
@@ -27,6 +28,12 @@ export default function ProfilePage() {
     setAlertState({ isOpen: true, title, message, type })
   }
 
+  // React Query users hook (cached 10 min)
+  const { data: usersList = [] } = useUsers()
+  const currentUser = useMemo(() => {
+    return usersList.find((u) => u.username === user?.username)
+  }, [usersList, user?.username])
+
   const handleChangePassword = async (e) => {
     e.preventDefault()
     setPwError('')
@@ -44,16 +51,13 @@ export default function ProfilePage() {
       return
     }
 
+    if (!currentUser?.userId) {
+      setPwError('User account not found.')
+      return
+    }
+
     setPwLoading(true)
     try {
-      const usersRes = await apiGetUsers()
-      const usersList = Array.isArray(usersRes.data) ? usersRes.data : []
-      const currentUser = usersList.find((u) => u.username === user?.username)
-      if (!currentUser) {
-        setPwError('User account not found.')
-        return
-      }
-
       const res = await api.patch(`/users/${currentUser.userId}/password`, {
         currentPassword: pwForm.currentPassword,
         newPassword: pwForm.newPassword,
@@ -76,10 +80,7 @@ export default function ProfilePage() {
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== user?.username) return
     try {
-      const usersRes = await apiGetUsers()
-      const usersList = Array.isArray(usersRes.data) ? usersRes.data : []
-      const currentUser = usersList.find((u) => u.username === user?.username)
-      if (currentUser) {
+      if (currentUser?.userId) {
         await apiDeleteUser(currentUser.userId)
       }
       setShowDeleteConfirmModal(false)

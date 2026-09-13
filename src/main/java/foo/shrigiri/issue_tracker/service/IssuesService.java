@@ -71,23 +71,7 @@ public class IssuesService {
     }
 
     public Issues updateIssue(Issues issue) {
-        return updateIssue(issue, null);
-    }
-
-    public Issues updateIssue(Issues issue, String username) {
         log.info("Updating issue with id: {}", issue.getIssueId());
-        Issues existing = issuesRepository.findById(issue.getIssueId())
-                .orElseThrow(() -> new RuntimeException("Issue not found"));
-
-        if (username != null && existing.getCreatedBy() != null && !existing.getCreatedBy().getUsername().equals(username)) {
-            log.warn("User {} is not the creator ({}) of issue {}", username, existing.getCreatedBy().getUsername(), issue.getIssueId());
-            throw new org.springframework.security.access.AccessDeniedException("Only the issue creator can edit an issue");
-        }
-
-        if (existing.getCreatedBy() != null) {
-            issue.setCreatedBy(existing.getCreatedBy());
-        }
-
         Projects project1 = issue.getProject();
         if (project1 != null && project1.getProjId() != null) {
             if (project1.getProjectMembers() == null || project1.getProjectMembers().isEmpty()) {

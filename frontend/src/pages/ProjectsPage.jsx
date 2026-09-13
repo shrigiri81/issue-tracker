@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FolderKanban, Plus, Search, Trash2, ArrowRight, Lock, LogIn } from 'lucide-react'
 import Layout from '../components/Layout'
@@ -7,7 +7,8 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import Avatar from '../components/Avatar'
 import { stripContentWrapper } from '../utils/text'
-import { apiGetProjects, apiCreateProject, apiDeleteProject, apiGetUsers, apiGetIssues } from '../api/client'
+import { apiCreateProject, apiDeleteProject } from '../api/client'
+import { useProjects, useIssues, useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 function formatDate(dateStr) {
@@ -18,11 +19,7 @@ function formatDate(dateStr) {
 export default function ProjectsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [projects, setProjects] = useState([])
-  const [users, setUsers] = useState([])
-  const [allIssues, setAllIssues] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [filter, setFilter] = useState('')
@@ -34,36 +31,22 @@ export default function ProjectsPage() {
   const [deletingProject, setDeletingProject] = useState(false)
   const [alertState, setAlertState] = useState({ open: false, title: '', message: '', type: 'info' })
 
+  // React Query hooks
+  const { data: projects = [], isLoading: projectsLoading, error: projError, refetch: refetchProjects } = useProjects()
+  const { data: allIssues = [], isLoading: issuesLoading } = useIssues()
+  // Users fetched lazily only when New Project modal is opened
+  const { data: users = [] } = useUsers({ enabled: showCreate })
+
+  const loading = projectsLoading || issuesLoading
+  const error = projError?.response?.data || projError?.message || ''
+
   const showAlert = (message, title = 'Notice', type = 'error') => {
     setAlertState({ open: true, title, message, type })
   }
 
-  const load = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const [projRes, usersRes, issuesRes] = await Promise.allSettled([
-        apiGetProjects(),
-        apiGetUsers(),
-        apiGetIssues(),
-      ])
-      if (projRes.status === 'fulfilled') {
-        setProjects(Array.isArray(projRes.value.data) ? projRes.value.data : [])
-      } else {
-        setError(projRes.reason?.response?.data || projRes.reason?.message || 'Failed to load projects.')
-      }
-      if (usersRes.status === 'fulfilled') {
-        setUsers(Array.isArray(usersRes.value.data) ? usersRes.value.data : [])
-      }
-      if (issuesRes.status === 'fulfilled') {
-        setAllIssues(Array.isArray(issuesRes.value.data) ? issuesRes.value.data : [])
-      }
-    } finally {
-      setLoading(false)
-    }
+  const load = () => {
+    refetchProjects()
   }
-
-  useEffect(() => { load() }, [])
 
   const handleCreateProject = async (e) => {
     e.preventDefault()
@@ -101,7 +84,7 @@ export default function ProjectsPage() {
     setDeletingProject(true)
     try {
       await apiDeleteProject(projectToDelete.projId)
-      setProjects((prev) => prev.filter((p) => p.projId !== projectToDelete.projId))
+      await refetchProjects()
       setProjectToDelete(null)
     } catch {
       showAlert('Failed to delete project. Please check your permissions.', 'Delete Error')

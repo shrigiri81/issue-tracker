@@ -23,11 +23,9 @@ import Avatar from '../components/Avatar'
 import AlertModal from '../components/AlertModal'
 import { stripContentWrapper } from '../utils/text'
 import {
-  apiGetIssues,
-  apiGetProjects,
-  apiGetUsers,
   apiCreateIssue,
 } from '../api/client'
+import { useIssues, useProjects, useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 function formatRelativeTime(dateStr) {
@@ -52,11 +50,20 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const workAreaRef = useRef(null)
 
-  const [allIssues, setAllIssues] = useState([])
-  const [projects, setProjects] = useState([])
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  // React Query hooks
+  const { data: allIssues = [], isLoading: issuesLoading, error: issuesError, refetch: refetchIssues } = useIssues()
+  const { data: projects = [], isLoading: projectsLoading, refetch: refetchProjects } = useProjects()
+
+  // Modal & alert state (Item 3)
+  const [showNewIssue, setShowNewIssue] = useState(false)
+  const [creatingIssue, setCreatingIssue] = useState(false)
+  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'error' })
+
+  // Lazily load users only when New Issue modal is open
+  const { data: users = [] } = useUsers({ enabled: showNewIssue })
+
+  const loading = issuesLoading || projectsLoading
+  const error = issuesError?.response?.data || issuesError?.message || ''
 
   // View tabs: 'assigned' | 'created' | 'recent'
   const [activeTab, setActiveTab] = useState('assigned')
@@ -68,11 +75,6 @@ export default function DashboardPage() {
   const [attentionOnly, setAttentionOnly] = useState(false)
   // Search text filter
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Modal & alert state (Item 3)
-  const [showNewIssue, setShowNewIssue] = useState(false)
-  const [creatingIssue, setCreatingIssue] = useState(false)
-  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'error' })
 
   const showAlert = (message, title = 'Notice', type = 'error') => {
     setAlertState({ isOpen: true, title, message, type })
@@ -87,46 +89,28 @@ export default function DashboardPage() {
     assignedToId: '',
   })
 
-  const loadData = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const [issuesRes, projRes, usersRes] = await Promise.allSettled([
-        apiGetIssues(),
-        apiGetProjects(),
-        apiGetUsers(),
-      ])
-
-      if (issuesRes.status === 'fulfilled') {
-        setAllIssues(Array.isArray(issuesRes.value.data) ? issuesRes.value.data : [])
-      } else {
-        setError(issuesRes.reason?.response?.data || issuesRes.reason?.message || 'Failed to load issues.')
-      }
-
-      if (projRes.status === 'fulfilled') {
-        const projs = Array.isArray(projRes.value.data) ? projRes.value.data : []
-        setProjects(projs)
-        if (projs.length > 0 && !issueForm.projectId) {
-          setIssueForm((prev) => ({ ...prev, projectId: projs[0].projId }))
-        }
-      }
-
-      if (usersRes.status === 'fulfilled') {
-        const uList = Array.isArray(usersRes.value.data) ? usersRes.value.data : []
-        setUsers(uList)
-        const me = uList.find((u) => u.username === user?.username)
-        if (me && !issueForm.assignedToId) {
-          setIssueForm((prev) => ({ ...prev, assignedToId: me.userId }))
-        }
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Set default project when projects load
   useEffect(() => {
-    loadData()
-  }, [])
+    if (projects.length > 0 && !issueForm.projectId) {
+      setIssueForm((prev) => ({ ...prev, projectId: projects[0].projId }))
+    }
+  }, [projects, issueForm.projectId])
+
+  // Set default assignee when users load
+  useEffect(() => {
+    if (users.length > 0 && !issueForm.assignedToId) {
+      const me = users.find((u) => u.username === user?.username)
+      setIssueForm((prev) => ({
+        ...prev,
+        assignedToId: me ? me.userId : users[0].userId,
+      }))
+    }
+  }, [users, user?.username, issueForm.assignedToId])
+
+  const loadData = () => {
+    refetchIssues()
+    refetchProjects()
+  }
 
   // Resolve current user record
   const currentUser = useMemo(() => {

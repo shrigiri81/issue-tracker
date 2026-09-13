@@ -24,13 +24,13 @@ public class UsersController {
         log.info("UsersController initialized");
     }
 
-    @GetMapping("/api/users")
-    public ResponseEntity<List<Users>> getAllUsers() {
-        log.info("Fetching all users");
-        List<Users> users = usersService.getAllUsers();
-        log.info("Successfully fetched {} users", users.size());
-        return ResponseEntity.ok(users);
-    }
+//    @GetMapping("/api/users")
+//    public ResponseEntity<List<Users>> getAllUsers() {
+//        log.info("Fetching all users");
+//        List<Users> users = usersService.getAllUsers();
+//        log.info("Successfully fetched {} users", users.size());
+//        return ResponseEntity.ok(users);
+//    }
 
     @GetMapping("/api/users/{id}")
     public ResponseEntity<Users> getUserById(@PathVariable Integer id) {

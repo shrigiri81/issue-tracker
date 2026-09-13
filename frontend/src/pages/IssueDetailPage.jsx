@@ -5,7 +5,6 @@ import {
   Trash2,
   CornerDownRight,
   MessageSquare,
-  Clock,
   ArrowLeft,
   FolderKanban,
   Send,
@@ -19,15 +18,13 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { stripContentWrapper } from '../utils/text'
 import {
-  apiGetIssue,
   apiUpdateIssue,
   apiDeleteIssue,
-  apiGetComments,
   apiAddComment,
   apiUpdateComment,
   apiDeleteComment,
-  apiGetUsers,
 } from '../api/client'
+import { useIssue, useComments, useUsers } from '../api/queries'
 import { useAuth } from '../context/AuthContext'
 
 function formatDate(d) {
@@ -54,12 +51,6 @@ export default function IssueDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-
-  const [issue, setIssue] = useState(null)
-  const [comments, setComments] = useState([])
-  const [allUsers, setAllUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
   // Issue editing state
   const [editing, setEditing] = useState(false)
@@ -90,50 +81,39 @@ export default function IssueDetailPage() {
     setAlertState({ open: true, title, message, type })
   }
 
-  const load = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const [issueRes, commentsRes, usersRes] = await Promise.allSettled([
-        apiGetIssue(id),
-        apiGetComments(id),
-        apiGetUsers(),
-      ])
+  // React Query hooks
+  const { data: issue, isLoading: issueLoading, error: issueError, refetch: refetchIssue } = useIssue(id)
+  const { data: comments = [], isLoading: commentsLoading, refetch: refetchComments } = useComments(id)
+  // Fetch users only when editing drawer is active
+  const { data: allUsers = [] } = useUsers({ enabled: editing })
 
-      if (issueRes.status === 'fulfilled') {
-        const iss = issueRes.value.data
-        setIssue(iss)
-        setEditForm({
-          issueTitle: stripContentWrapper(iss.issueTitle ?? ''),
-          issueDesc: stripContentWrapper(iss.issueDesc ?? ''),
-          status: iss.status ?? 'OPEN',
-          priority: iss.priority ?? 'MEDIUM',
-          assignedToId: iss.assignedTo?.userId ?? '',
-        })
-      } else {
-        const err = issueRes.reason
-        if (err.response?.status === 404) {
-          navigate('/')
-          return
-        }
-        setError(err.response?.data || err.message || 'Failed to load issue.')
-      }
+  const loading = issueLoading || commentsLoading
+  const error = issueError?.response?.data || issueError?.message || ''
 
-      if (commentsRes.status === 'fulfilled') {
-        setComments(Array.isArray(commentsRes.value.data) ? commentsRes.value.data : [])
-      }
-
-      if (usersRes.status === 'fulfilled') {
-        setAllUsers(Array.isArray(usersRes.value.data) ? usersRes.value.data : [])
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Sync edit form when issue loads
   useEffect(() => {
-    load()
-  }, [id])
+    if (issue) {
+      setEditForm({
+        issueTitle: stripContentWrapper(issue.issueTitle ?? ''),
+        issueDesc: stripContentWrapper(issue.issueDesc ?? ''),
+        status: issue.status ?? 'OPEN',
+        priority: issue.priority ?? 'MEDIUM',
+        assignedToId: issue.assignedTo?.userId ?? '',
+      })
+    }
+  }, [issue])
+
+  // Handle 404
+  useEffect(() => {
+    if (issueError?.response?.status === 404) {
+      navigate('/')
+    }
+  }, [issueError, navigate])
+
+  const load = () => {
+    refetchIssue()
+    refetchComments()
+  }
 
   // Permissions checks
   const isIssueCreator = useMemo(() => {
@@ -195,8 +175,7 @@ export default function IssueDetailPage() {
     try {
       await apiAddComment(id, text)
       setCommentText('')
-      const res = await apiGetComments(id)
-      setComments(Array.isArray(res.data) ? res.data : [])
+      await refetchComments()
     } catch (err) {
       showAlert(err.response?.data || err.message || 'Failed to add comment.', 'Comment Failed')
     } finally {
@@ -213,8 +192,7 @@ export default function IssueDetailPage() {
       await apiAddComment(id, text, parentCommentId)
       setReplyText('')
       setReplyingToId(null)
-      const res = await apiGetComments(id)
-      setComments(Array.isArray(res.data) ? res.data : [])
+      await refetchComments()
     } catch (err) {
       showAlert(err.response?.data || err.message || 'Failed to post reply.', 'Reply Failed')
     } finally {
@@ -230,8 +208,7 @@ export default function IssueDetailPage() {
       await apiUpdateComment(id, commentId, text)
       setEditingCommentId(null)
       setEditingCommentText('')
-      const res = await apiGetComments(id)
-      setComments(Array.isArray(res.data) ? res.data : [])
+      await refetchComments()
     } catch (err) {
       showAlert(err.response?.data || err.message || 'Failed to update comment.', 'Update Failed')
     }
@@ -243,7 +220,7 @@ export default function IssueDetailPage() {
     setDeletingComment(true)
     try {
       await apiDeleteComment(id, commentToDelete.commentId)
-      setComments((prev) => prev.filter((c) => c.commentId !== commentToDelete.commentId))
+      await refetchComments()
       setCommentToDelete(null)
     } catch (err) {
       showAlert(err.response?.data || err.message || 'Failed to delete comment.', 'Delete Failed')
