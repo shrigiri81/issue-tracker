@@ -7,13 +7,15 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import Layout from './components/Layout'
 import ProjectsPage from './pages/ProjectsPage'
 import IssueDetailPage from './pages/IssueDetailPage'
 import ProfilePage from './pages/ProfilePage'
 
 function PrivateRoute({ children }) {
   const { user } = useAuth()
-  return user ? children : <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
+  return children || null
 }
 
 function AppRoutes() {
@@ -23,13 +25,15 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      {/* Main application pages - allow mount and data-fetching */}
-      <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-      <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-      <Route path="/projects" element={<PrivateRoute><ProjectsPage /></PrivateRoute>} />
-      <Route path="/projects/:id" element={<PrivateRoute><ProjectDetailPage /></PrivateRoute>} />
-      <Route path="/issues/:id" element={<PrivateRoute><IssueDetailPage /></PrivateRoute>} />
-      <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+      {/* Main application pages - persistent Layout shell */}
+      <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/issues/:id" element={<IssueDetailPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+      </Route>
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

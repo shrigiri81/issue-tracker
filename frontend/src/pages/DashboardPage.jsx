@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Flame,
 } from 'lucide-react'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
@@ -270,7 +269,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-[1400px] mx-auto">
         {error && (
           <div className="mb-6 bg-[#eff4ff] border border-[#dce9ff] rounded-2xl p-4 flex items-center justify-between shadow-xs">
@@ -299,23 +298,6 @@ export default function DashboardPage() {
             <p className="text-[13px] text-[#565e74] mt-1 font-[Inter,sans-serif]">
               Focused view of issues assigned to you, items you reported, and active priorities.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 self-start md:self-auto">
-            <button
-              onClick={() => navigate('/projects')}
-              className="h-9 px-3.5 border border-[#c6c5d5]/80 bg-white hover:bg-[#f8f9ff] text-[#0b1c30] text-[12px] font-semibold rounded-xl flex items-center gap-1.5 transition-colors font-[Geist,sans-serif]"
-            >
-              <FolderKanban className="w-4 h-4 text-[#565e74]" />
-              <span>Browse Projects ({projects.length})</span>
-            </button>
-            <button
-              onClick={() => setShowNewIssue(true)}
-              className="h-9 px-4 bg-[#4450b7] hover:bg-[#3540a0] text-white text-[12px] font-semibold rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-[0.99] font-[Geist,sans-serif]"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Issue</span>
-            </button>
           </div>
         </section>
 
@@ -881,6 +863,6 @@ export default function DashboardPage() {
         type={alertState.type}
         onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
       />
-    </Layout>
+    </>
   )
 }

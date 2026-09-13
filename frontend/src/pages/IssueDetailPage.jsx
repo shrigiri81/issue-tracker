@@ -10,7 +10,6 @@ import {
   Send,
   AlertCircle,
 } from 'lucide-react'
-import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import Avatar from '../components/Avatar'
@@ -249,14 +248,12 @@ export default function IssueDetailPage() {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="p-6 flex items-center justify-center h-[60vh]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 rounded-full border-2 border-[#4450b7] border-t-transparent animate-spin" />
-            <p className="text-[13px] text-[#565e74] font-[Inter,sans-serif]">Loading issue details...</p>
-          </div>
+      <div className="p-6 flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#4450b7] border-t-transparent animate-spin" />
+          <p className="text-[13px] text-[#565e74] font-[Inter,sans-serif]">Loading issue details...</p>
         </div>
-      </Layout>
+      </div>
     )
   }
 
@@ -427,7 +424,7 @@ export default function IssueDetailPage() {
   }
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-[1400px] mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[12px] text-[#565e74] mb-4 font-[Inter,sans-serif]">
@@ -771,6 +768,6 @@ export default function IssueDetailPage() {
         message={alertState.message}
         type={alertState.type}
       />
-    </Layout>
+    </>
   )
 }

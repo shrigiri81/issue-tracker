@@ -107,3 +107,160 @@
   ::-webkit-scrollbar { display: none; }
   * { scrollbar-width: none; }
 }
+
+/* ─── Sidebar collapse / expand — roll-up / drop-in ──────────────────────────── */
+
+/**
+ * sidebar-roll-up: sidebar content rolls up from bottom to top,
+ * narrowing towards the top-left (where the header pill sits),
+ * and floats upward across the boundary into the header pill.
+ */
+@keyframes sidebar-roll-up {
+  0% {
+    clip-path: inset(0 0 0 0 round 16px);
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  30% {
+    clip-path: inset(0 0 45% 0 round 16px);
+    transform: translateY(-4px) scale(0.98);
+    opacity: 0.98;
+  }
+  60% {
+    clip-path: inset(0 15% 80% 0 round 16px);
+    transform: translateY(-12px) scale(0.92);
+    opacity: 0.92;
+  }
+  85% {
+    clip-path: inset(0 30% 95% 0 round 20px);
+    transform: translateY(-22px) scale(0.85);
+    opacity: 0.6;
+  }
+  100% {
+    clip-path: inset(0 42% 100% 0 round 24px);
+    transform: translateY(-30px) scale(0.75);
+    opacity: 0;
+  }
+}
+
+/**
+ * sidebar-drop-in: drops out from the header pill location,
+ * smoothly unrolling downward and widening out to full height.
+ */
+@keyframes sidebar-drop-in {
+  0% {
+    clip-path: inset(0 35% 100% 0 round 24px);
+    transform: translateY(-26px) scale(0.82);
+    opacity: 0;
+    filter: blur(1px);
+  }
+  25% {
+    clip-path: inset(0 22% 70% 0 round 20px);
+    transform: translateY(-16px) scale(0.89);
+    opacity: 0.85;
+    filter: blur(0px);
+  }
+  55% {
+    clip-path: inset(0 10% 32% 0 round 16px);
+    transform: translateY(-6px) scale(0.96);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  80% {
+    clip-path: inset(0 0 8% 0 round 16px);
+    transform: translateY(-1px) scale(0.99);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0 round 16px);
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+.sidebar-roll-up {
+  transform-origin: top left;
+  animation: sidebar-roll-up 320ms cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  pointer-events: none;
+}
+
+.sidebar-drop-in {
+  transform-origin: top left;
+  animation: sidebar-drop-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Pill emerging out of the persistent logo */
+@keyframes pill-emerge-from-logo {
+  0% {
+    clip-path: inset(0 100% 0 0 round 0 12px 12px 0);
+    transform: translateX(-16px) scaleX(0.4);
+    opacity: 0;
+  }
+  40% {
+    clip-path: inset(0 45% 0 0 round 0 12px 12px 0);
+    transform: translateX(-6px) scaleX(0.75);
+    opacity: 0.85;
+  }
+  75% {
+    clip-path: inset(0 10% 0 0 round 0 12px 12px 0);
+    transform: translateX(-1px) scaleX(0.97);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0 round 0 12px 12px 0);
+    transform: translateX(0) scaleX(1);
+    opacity: 1;
+  }
+}
+
+.pill-emerge-from-logo {
+  transform-origin: left center;
+  animation: pill-emerge-from-logo 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Header pill: swamps into existence receiving the rolling-up sidebar */
+@keyframes pill-swamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.72) translateY(12px);
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.06) translateY(-2px);
+    box-shadow: 0 0 20px 3px rgba(99, 102, 241, 0.3);
+  }
+  75% {
+    transform: scale(0.98) translateY(1px);
+    box-shadow: 0 0 8px 1px rgba(99, 102, 241, 0.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+}
+
+.pill-swamp-in {
+  transform-origin: left center;
+  animation: pill-swamp-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Logo entrance when expanding back */
+@keyframes logo-emerge {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.logo-emerge {
+  transform-origin: left center;
+  animation: logo-emerge 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+

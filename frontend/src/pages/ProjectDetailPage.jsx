@@ -13,7 +13,6 @@ import {
   Users,
   ShieldAlert,
 } from 'lucide-react'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
@@ -224,19 +223,17 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="p-6 flex items-center justify-center h-[60vh]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 rounded-full border-2 border-[#4450b7] border-t-transparent animate-spin" />
-            <p className="text-[13px] text-[#565e74] font-[Inter,sans-serif]">Loading project details...</p>
-          </div>
+      <div className="p-6 flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#4450b7] border-t-transparent animate-spin" />
+          <p className="text-[13px] text-[#565e74] font-[Inter,sans-serif]">Loading project details...</p>
         </div>
-      </Layout>
+      </div>
     )
   }
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-[1600px] mx-auto">
         {/* Breadcrumb (Item 6) */}
         <div className="flex items-center gap-2 text-[12px] text-[#565e74] mb-4 font-[Inter,sans-serif]">
@@ -700,6 +697,6 @@ export default function ProjectDetailPage() {
         type={alertState.type}
         onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
       />
-    </Layout>
+    </>
   )
 }

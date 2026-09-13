@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FolderKanban, Plus, Search, Trash2, ArrowRight, Lock, LogIn } from 'lucide-react'
-import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
@@ -100,7 +99,7 @@ export default function ProjectsPage() {
   )
 
   return (
-    <Layout>
+    <>
       <div className="p-6 max-w-[1600px] mx-auto">
         {error && (
           <div className="mb-6 bg-[#eff4ff] border border-[#dce9ff] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
@@ -426,6 +425,6 @@ export default function ProjectsPage() {
         message={alertState.message}
         type={alertState.type}
       />
-    </Layout>
+    </>
   )
 }

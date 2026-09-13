@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Shield, AlertTriangle, Info, CheckCircle2, Lock, KeyRound, Trash2 } from 'lucide-react'
-import Layout from '../components/Layout'
 import Avatar from '../components/Avatar'
 import AlertModal from '../components/AlertModal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -103,7 +102,7 @@ export default function ProfilePage() {
       : 'bg-[#eff4ff] text-[#4450b7] border-[#c6d7ff]'
 
   return (
-    <Layout>
+    <>
       <div className="p-6 md:p-8 max-w-4xl mx-auto">
         {/* Header Profile Hero Banner */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 mb-6 border border-[#e5eeff] shadow-xs">
@@ -367,6 +366,6 @@ export default function ProfilePage() {
         type={alertState.type}
         onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
       />
-    </Layout>
+    </>
   )
 }

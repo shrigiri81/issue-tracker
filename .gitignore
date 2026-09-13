@@ -6,6 +6,7 @@ build/
 !**/src/test/**/build/
 .env
 stitch_ui_ux_redesign/**
+stitch_ui_ux_redesign_sidebar/**
 .zip
 
 ### STS ###
