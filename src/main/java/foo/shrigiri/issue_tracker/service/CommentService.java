@@ -57,6 +57,10 @@ public class CommentService {
     }
 
     public Comments updateCommentContent(Integer commentId, String commentData) {
+        return updateCommentContent(commentId, commentData, null);
+    }
+
+    public Comments updateCommentContent(Integer commentId, String commentData, String username) {
         Comments response = commentRepository.findById(commentId).orElseThrow(() -> new RuntimeException("Comment not found"));
         response.setCommentData(commentData);
         commentRepository.save(response);
@@ -65,10 +69,15 @@ public class CommentService {
     }
 
     public String deleteComment(Integer commentId) {
-        if (commentRepository.existsById(commentId)) {
-            commentRepository.deleteById(commentId);
-            return "Comment deleted successfully";
+        return deleteComment(commentId, null);
+    }
+
+    public String deleteComment(Integer commentId, String username) {
+        Comments comment = commentRepository.findById(commentId).orElseThrow(() -> new RuntimeException("Comment not found"));
+        if (username != null && comment.getCommentAuthor() != null && !comment.getCommentAuthor().getUsername().equals(username)) {
+            throw new org.springframework.security.access.AccessDeniedException("You can only delete your own comments");
         }
-        return "Failed to delete comment.";
+        commentRepository.deleteById(commentId);
+        return "Comment deleted successfully";
     }
 }

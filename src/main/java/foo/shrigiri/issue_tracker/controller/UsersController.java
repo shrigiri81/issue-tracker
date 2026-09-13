@@ -1,6 +1,7 @@
 package foo.shrigiri.issue_tracker.controller;
 
 import foo.shrigiri.issue_tracker.dto.LoginRequest;
+import foo.shrigiri.issue_tracker.dto.UpdatePasswordRequest;
 import foo.shrigiri.issue_tracker.model.Users;
 import foo.shrigiri.issue_tracker.service.UsersService;
 import lombok.extern.slf4j.Slf4j;
@@ -79,8 +80,10 @@ public class UsersController {
     }
 
     @PatchMapping("/api/users/{id}/password")
-    public ResponseEntity<String> updatePassword(@PathVariable Integer id, @RequestBody String currentPassword, @RequestBody String newPassword) {
+    public ResponseEntity<String> updatePassword(@PathVariable Integer id, @RequestBody UpdatePasswordRequest passwordRequest) {
         log.info("Updating password for user id {}", id);
+        String currentPassword = passwordRequest.getCurrentPassword();
+        String newPassword = passwordRequest.getNewPassword();
         String result = usersService.updatePassword(id, currentPassword, newPassword);
         log.info("Updating password: Password updated successfully");
         return ResponseEntity.ok(result);

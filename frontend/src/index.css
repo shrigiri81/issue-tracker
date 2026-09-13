@@ -77,6 +77,33 @@
     font-family: var(--font-inter);
   }
 
+  /* Interactive cursor pointer reset (Fixes default arrow cursor on buttons/inputs/controls in modern CSS reset) */
+  button,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  summary,
+  a,
+  label {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input[type="button"]:disabled,
+  input[type="submit"]:disabled,
+  input[type="reset"]:disabled,
+  input[type="checkbox"]:disabled,
+  input[type="radio"]:disabled,
+  select:disabled,
+  label:has(input:disabled) {
+    cursor: not-allowed;
+  }
+
   ::-webkit-scrollbar { display: none; }
   * { scrollbar-width: none; }
 }

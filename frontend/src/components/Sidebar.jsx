@@ -1,16 +1,17 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { LayoutDashboard, FolderKanban, Settings, LogOut, LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Avatar from './Avatar'
 
 const NAV_ITEMS = [
-  { icon: 'grid_view', label: 'Dashboard', to: '/' },
-  { icon: 'folder', label: 'Projects', to: '/projects' },
-  { icon: 'person', label: 'Profile', to: '/profile' },
+  { icon: LayoutDashboard, label: 'Dashboard', to: '/', match: (path) => path === '/' || path === '/dashboard' },
+  { icon: FolderKanban, label: 'Projects', to: '/projects', match: (path) => path.startsWith('/projects') },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
@@ -35,23 +36,23 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="px-2 flex flex-col gap-0.5">
-          {NAV_ITEMS.map(({ icon, label, to }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] transition-colors ${
+          {NAV_ITEMS.map(({ icon: Icon, label, to, match }) => {
+            const isActive = match(location.pathname)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors ${
                   isActive
                     ? 'bg-[#dce9ff] text-[#4450b7] font-semibold'
                     : 'text-[#454652] hover:bg-[#e5eeff] hover:text-[#0b1c30] font-normal'
-                }`
-              }
-            >
-              <span className="material-symbols-outlined text-[18px]">{icon}</span>
-              <span className="font-[Inter,sans-serif]">{label}</span>
-            </NavLink>
-          ))}
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="font-[Inter,sans-serif]">{label}</span>
+              </NavLink>
+            )
+          })}
         </nav>
       </div>
 
@@ -61,28 +62,31 @@ export default function Sidebar() {
           <>
             <button
               onClick={() => navigate('/profile')}
-              className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#eff4ff] transition-colors w-full text-left"
+              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-[#eff4ff] transition-colors w-full text-left group"
+              title="View profile & settings"
             >
               <Avatar name={user?.username} size="md" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[12px] font-medium text-[#0b1c30] truncate font-[Geist,sans-serif]">{user?.username || 'User'}</span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[12px] font-medium text-[#0b1c30] truncate font-[Geist,sans-serif] group-hover:text-[#4450b7] transition-colors">
+                  {user?.username || 'User'}
+                </span>
                 <span className="text-[11px] text-[#565e74] truncate font-[Inter,sans-serif]">{user?.email || 'Member'}</span>
               </div>
             </button>
             <div className="flex items-center justify-between px-2 py-1">
               <NavLink
                 to="/profile"
-                className="flex items-center gap-1 text-[11px] text-[#767684] hover:text-[#0b1c30] transition-colors"
+                className="flex items-center gap-1.5 text-[11px] text-[#767684] hover:text-[#0b1c30] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">settings</span>
-                <span className="font-[Geist,sans-serif]">Preferences</span>
+                <Settings className="w-3.5 h-3.5" />
+                <span className="font-[Geist,sans-serif]">Settings</span>
               </NavLink>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1 text-[11px] text-[#767684] hover:text-[#ba1a1a] transition-colors"
+                className="flex items-center gap-1.5 text-[11px] text-[#767684] hover:text-[#ba1a1a] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">logout</span>
-                <span className="font-[Geist,sans-serif]">Exit</span>
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="font-[Geist,sans-serif]">Logout</span>
               </button>
             </div>
           </>
@@ -91,7 +95,7 @@ export default function Sidebar() {
             onClick={() => navigate('/login')}
             className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-[#4450b7] hover:bg-[#3540a0] text-white text-[12px] font-semibold transition-colors font-[Geist,sans-serif]"
           >
-            <span className="material-symbols-outlined text-[16px]">login</span>
+            <LogIn className="w-4 h-4" />
             Sign in
           </button>
         )}

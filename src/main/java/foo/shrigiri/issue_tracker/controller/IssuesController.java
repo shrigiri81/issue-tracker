@@ -51,9 +51,10 @@ public class IssuesController {
     }
 
     @PutMapping("/api/issues/{id}")
-    public ResponseEntity<Issues> updateIssue(@RequestBody Issues issue) {
-        log.info("Updating issue with id: {}", issue.getIssueId());
-        Issues updated = issuesService.updateIssue(issue);
+    public ResponseEntity<Issues> updateIssue(@PathVariable Integer id, @RequestBody Issues issue, org.springframework.security.core.Authentication auth) {
+        log.info("Updating issue with id: {} by user: {}", id, auth != null ? auth.getName() : "anonymous");
+        issue.setIssueId(id);
+        Issues updated = issuesService.updateIssue(issue, auth != null ? auth.getName() : null);
         log.info("Issue updated successfully for id: {}", updated.getIssueId());
         return ResponseEntity.ok(updated);
     }

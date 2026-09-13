@@ -100,11 +100,13 @@ export const apiAddComment = (issueId, commentContent, repliedTo = null) =>
   api.post(`/issues/${issueId}/comments`, { commentContent, repliedTo })
 
 // PATCH /api/issues/{issueId}/comments/{commentId} → Comments
-// Body: raw JSON string
-export const apiUpdateComment = (issueId, commentId, commentData) =>
-  api.patch(`/issues/${issueId}/comments/${commentId}`, JSON.stringify(commentData), {
-    headers: { 'Content-Type': 'application/json' },
+// Sends plain text to prevent JSON.stringify from adding quotes to either ends
+export const apiUpdateComment = (issueId, commentId, commentData) => {
+  const text = typeof commentData === 'string' ? commentData.trim() : String(commentData || '')
+  return api.patch(`/issues/${issueId}/comments/${commentId}`, text, {
+    headers: { 'Content-Type': 'text/plain' },
   })
+}
 
 // DELETE /api/issues/{issueId}/comments/{commentId} → String
 export const apiDeleteComment = (issueId, commentId) =>

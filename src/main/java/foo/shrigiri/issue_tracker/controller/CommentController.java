@@ -45,15 +45,15 @@ public class CommentController {
     }
 
     @PatchMapping("/api/issues/{issue_id}/comments/{commentId}")
-    public ResponseEntity<Comments> updateCommentContent(@PathVariable Integer commentId, @RequestBody String commentData) {
-        Comments response = commentService.updateCommentContent(commentId, commentData);
+    public ResponseEntity<Comments> updateCommentContent(@PathVariable Integer commentId, @RequestBody String commentData, Authentication auth) {
+        Comments response = commentService.updateCommentContent(commentId, commentData, auth != null ? auth.getName() : null);
 
         return ResponseEntity.accepted().body(response);
     }
 
     @DeleteMapping("/api/issues/{issue_id}/comments/{commentId}")
-    public ResponseEntity<String> deleteComment(@PathVariable Integer commentId) {
-        String response = commentService.deleteComment(commentId);
+    public ResponseEntity<String> deleteComment(@PathVariable Integer commentId, Authentication auth) {
+        String response = commentService.deleteComment(commentId, auth != null ? auth.getName() : null);
 
         return ResponseEntity.ok(response);
     }

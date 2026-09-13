@@ -1,4 +1,5 @@
 import React from 'react'
+import { AlertTriangle, RotateCcw, Home } from 'lucide-react'
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -32,7 +33,7 @@ export default class ErrorBoundary extends React.Component {
             style={{ boxShadow: '0 20px 60px rgba(11,28,48,0.08)' }}
           >
             <div className="w-14 h-14 rounded-2xl bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-[30px]">error</span>
+              <AlertTriangle className="w-8 h-8" />
             </div>
 
             <h1 className="text-[20px] font-bold text-[#0b1c30] tracking-tight font-[Geist,sans-serif]">
@@ -58,14 +59,14 @@ export default class ErrorBoundary extends React.Component {
                 onClick={this.handleReload}
                 className="flex-1 sm:flex-initial h-9 px-4 bg-[#4450b7] hover:bg-[#3540a0] text-white text-[13px] font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] font-[Geist,sans-serif]"
               >
-                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <RotateCcw className="w-4 h-4" />
                 Reload Page
               </button>
               <button
                 onClick={this.handleGoHome}
                 className="flex-1 sm:flex-initial h-9 px-4 bg-[#eff4ff] hover:bg-[#e5eeff] text-[#0b1c30] text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 border border-[#c6c5d5]/60 transition-all font-[Geist,sans-serif]"
               >
-                <span className="material-symbols-outlined text-[16px]">home</span>
+                <Home className="w-4 h-4" />
                 Dashboard
               </button>
             </div>

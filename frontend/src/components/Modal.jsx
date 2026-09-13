@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
 
 export default function Modal({ open, onClose, title, children, size = 'md' }) {
   const backdropRef = useRef(null)
@@ -39,7 +40,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
             onClick={onClose}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-[#767684] hover:text-[#0b1c30] hover:bg-[#e5eeff] transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <X className="w-4 h-4" />
           </button>
         </div>
         {/* Body */}

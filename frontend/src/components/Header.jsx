@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Search, FolderKanban, CheckCircle2, LogIn } from 'lucide-react'
 import { apiSearch } from '../api/client'
 import Avatar from './Avatar'
 import { useAuth } from '../context/AuthContext'
 
-export default function Header({ onNewIssue }) {
+export default function Header() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -51,7 +52,7 @@ export default function Header({ onNewIssue }) {
       <div className="flex items-center gap-3 flex-1 max-w-lg" ref={searchRef}>
         <div className="relative w-full">
           <div className="flex items-center gap-2 w-full bg-[#eff4ff] px-3 py-1.5 rounded-lg text-[#454652] hover:bg-[#e5eeff] transition-colors">
-            <span className="material-symbols-outlined text-[#767684] text-[18px]">search</span>
+            <Search className="w-4 h-4 text-[#767684]" />
             <input
               className="bg-transparent border-none outline-none text-[13px] text-[#0b1c30] placeholder:text-[#767684] flex-1 font-[Inter,sans-serif]"
               placeholder="Search issues, projects..."
@@ -74,9 +75,11 @@ export default function Header({ onNewIssue }) {
                   onClick={() => handleResultClick(r)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#eff4ff] transition-colors text-left"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-[#767684]">
-                    {r.type === 'PROJECT' ? 'folder' : 'check_circle'}
-                  </span>
+                  {r.type === 'PROJECT' ? (
+                    <FolderKanban className="w-4 h-4 text-[#767684]" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-[#767684]" />
+                  )}
                   <div>
                     <p className="text-[13px] text-[#0b1c30] font-medium">{r.name}</p>
                     <p className="text-[11px] text-[#565e74]">{r.type}</p>
@@ -90,15 +93,6 @@ export default function Header({ onNewIssue }) {
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        {onNewIssue && (
-          <button
-            onClick={onNewIssue}
-            className="h-8 px-3 bg-[#5e6ad2] hover:bg-[#4450b7] text-white text-[12px] font-medium rounded-lg flex items-center gap-1 shadow-sm transition-colors font-[Geist,sans-serif]"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New Issue
-          </button>
-        )}
         {user ? (
           <button
             onClick={() => navigate('/profile')}
@@ -110,9 +104,9 @@ export default function Header({ onNewIssue }) {
         ) : (
           <button
             onClick={() => navigate('/login')}
-            className="h-8 px-3 bg-[#4450b7] hover:bg-[#3540a0] text-white text-[12px] font-semibold rounded-lg flex items-center gap-1 shadow-sm transition-colors font-[Geist,sans-serif]"
+            className="h-8 px-3 bg-[#4450b7] hover:bg-[#3540a0] text-white text-[12px] font-semibold rounded-lg flex items-center gap-1.5 shadow-sm transition-colors font-[Geist,sans-serif]"
           >
-            <span className="material-symbols-outlined text-[16px]">login</span>
+            <LogIn className="w-4 h-4" />
             Sign in
           </button>
         )}

@@ -144,7 +144,9 @@ public class UsersService {
         log.info("Updating password: finding if user with id {} exists.", id);
         Users user1 = usersRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         log.info("Updating password for user id {}", id);
-        if (!Objects.equals(currentPassword, user1.getPassword())) {
+        boolean matches = (user1.getHashedPassword() != null && passwordEncoder.matches(currentPassword, user1.getHashedPassword()))
+                || Objects.equals(currentPassword, user1.getPassword());
+        if (!matches) {
             return "Current password is incorrect.";
         }
         String encodedPassword = passwordEncoder.encode(newPassword);
